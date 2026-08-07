@@ -1,0 +1,366 @@
+import streamlit as st
+import pandas as pd
+
+# --- PAGE CONFIG & CUSTOM CSS ---
+st.set_page_config(page_title="Wickboldt Capital Underwriting Model", layout="wide", page_icon="🏗️")
+
+st.markdown("""
+    <style>
+    .tagline { color: #C5A059; font-style: italic; font-weight: 600; font-size: 1.15rem; margin-bottom: 20px; }
+    div[data-testid="stMetricValue"] { font-size: 1.25rem !important; color: #1B365D; }
+    div[data-testid="stMetricLabel"] { font-size: 0.82rem !important; }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- SESSION STATE INITIALIZATION ---
+if "active_page" not in st.session_state:
+    st.session_state.active_page = "📊 Performance Dashboard"
+
+if "sq_ft" not in st.session_state:
+    st.session_state.sq_ft = 1150.0
+
+if "cost_per_sqft" not in st.session_state:
+    st.session_state.cost_per_sqft = 175.0
+
+if "const_closing_costs" not in st.session_state:
+    st.session_state.const_closing_costs = 5000.0
+
+if "refi_closing_costs" not in st.session_state:
+    st.session_state.refi_closing_costs = 3500.0
+
+if "market_rent" not in st.session_state:
+    st.session_state.market_rent = 1700.0
+
+if "vacancy_rate" not in st.session_state:
+    st.session_state.vacancy_rate = 5.0
+
+if "const_rate" not in st.session_state:
+    st.session_state.const_rate = 8.5
+
+if "refi_rate" not in st.session_state:
+    st.session_state.refi_rate = 6.25
+
+if "refi_points" not in st.session_state:
+    st.session_state.refi_points = 1.0
+
+if "budget_df" not in st.session_state:
+    st.session_state.budget_df = pd.DataFrame({
+        "Classification": ["Hard Costs", "Hard Costs", "Hard Costs", "Soft Costs", "Soft Costs", "Soft Costs"],
+        "Budget Item": ["Foundation & Structure", "Shell & Framing", "MEP & Finishes", "Permits & Fees", "Design & Engineering", "Contingency & Reserve"],
+        "Percentage (%)": [30.0, 30.0, 20.0, 5.0, 10.0, 5.0]
+    })
+
+if "opex_df" not in st.session_state:
+    st.session_state.opex_df = pd.DataFrame({
+        "Expense Item": ["Property Taxes", "Insurance", "Property Management", "Maintenance & Repairs", "Reserves & Utilities"],
+        "Annual Cost ($)": [2000.0, 1200.0, 1224.0, 1000.0, 700.0]
+    })
+
+# --- SIDEBAR NAVIGATION (Synchronized State) ---
+st.sidebar.title("🏗️ Wickboldt Capital")
+st.sidebar.markdown('<p class="tagline" style="font-size:0.9rem;">Today\'s Foundation. Tomorrow\'s Legacy.</p>', unsafe_allow_html=True)
+
+pages = [
+    "📊 Performance Dashboard",
+    "🏗️ Hard & Soft Cost Budget",
+    "⚙️ Vacancy & Operating Expenses",
+    "🏛️ Capital Stack & Debt"
+]
+
+st.session_state.nav_radio = st.session_state.active_page
+
+def handle_nav_change():
+    st.session_state.active_page = st.session_state.nav_radio
+
+nav_selection = st.sidebar.radio(
+    "Navigation Menu",
+    pages,
+    key="nav_radio",
+    on_change=handle_nav_change
+)
+
+# --- FINANCIAL CALCULATIONS (Using Session State) ---
+sq_ft = st.session_state.sq_ft
+current_cost_sf = st.session_state.cost_per_sqft
+total_build_cost = sq_ft * current_cost_sf
+total_cost = total_build_cost + st.session_state.const_closing_costs
+equity_required = total_cost * 0.30
+loan_amount = total_cost - equity_required
+
+refi_points_cost = loan_amount * (st.session_state.refi_points / 100.0)
+total_cash_invested = equity_required + st.session_state.const_closing_costs + refi_points_cost + st.session_state.refi_closing_costs
+
+# Income, Vacancy, EGI, OpEx & NOI Calculations
+gross_potential_income = st.session_state.market_rent * 12.0
+vacancy_loss_dollars = gross_potential_income * (st.session_state.vacancy_rate / 100.0)
+effective_gross_income = gross_potential_income - vacancy_loss_dollars
+
+total_annual_opex = st.session_state.opex_df["Annual Cost ($)"].sum() if "Annual Cost ($)" in st.session_state.opex_df.columns else 0.0
+opex_ratio = (total_annual_opex / effective_gross_income * 100.0) if effective_gross_income > 0 else 0.0
+
+net_operating_income = effective_gross_income - total_annual_opex
+
+# Debt Service & Returns
+monthly_interest_rate = (st.session_state.refi_rate / 100.0) / 12.0
+monthly_debt_service = (loan_amount * (monthly_interest_rate * (1 + monthly_interest_rate) ** 360) / 
+                       ((1 + monthly_interest_rate) ** 360 - 1)) if monthly_interest_rate > 0 else (loan_amount / 360)
+annual_debt_service = monthly_debt_service * 12.0
+
+dscr = net_operating_income / annual_debt_service if annual_debt_service > 0 else 0.0
+annual_cash_flow = net_operating_income - annual_debt_service
+cash_on_cash = (annual_cash_flow / total_cash_invested * 100.0) if total_cash_invested > 0 else 0.0
+
+# Breakeven Occupancy Calculation
+breakeven_occupancy = ((total_annual_opex + annual_debt_service) / gross_potential_income * 100.0) if gross_potential_income > 0 else 0.0
+
+
+# --- VIEW RENDERING BASED ON ACTIVE PAGE ---
+
+if st.session_state.active_page == "📊 Performance Dashboard":
+    st.title("📊 Performance Dashboard")
+    st.markdown('<p class="tagline">Today\'s Foundation. Tomorrow\'s Legacy.</p>', unsafe_allow_html=True)
+    
+    st.subheader("Executive Underwriting Summary")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Development Cost", f"${total_cost:,.2f}")
+    col2.metric("DSCR", f"{dscr:.2f}x", delta="Healthy >= 1.20" if dscr >= 1.20 else "Tight < 1.20")
+    col3.metric("Cash-on-Cash Return", f"{cash_on_cash:.2f}%")
+    col4.metric("Net Operating Income (NOI)", f"${net_operating_income:,.2f}")
+    
+    st.markdown("---")
+    
+    # --- SUB-TAB SUMMARIES WITH DIRECT NAVIGATION BUTTONS ---
+    
+    col_s1, col_s2 = st.columns(2)
+    
+    with col_s1:
+        st.markdown("### 🏗️ Construction Budget Summary")
+        st.markdown(
+            f"""
+            - **Square Footage:** {sq_ft:,.0f} SF  
+            - **Cost per Square Foot:** ${current_cost_sf:,.2f} / SF  
+            - **Direct/Indirect Build Cost:** ${total_build_cost:,.2f}  
+            - **Construction Loan Closing Costs:** ${st.session_state.const_closing_costs:,.2f}  
+            - **Total Development Basis:** **${total_cost:,.2f}**  
+            """,
+            unsafe_allow_html=False
+        )
+        if st.button("Manage Construction Budget"):
+            st.session_state.active_page = "🏗️ Hard & Soft Cost Budget"
+            st.rerun()
+            
+    with col_s2:
+        st.markdown("### ⚙️ Income & Operating Summary")
+        st.markdown(
+            f"""
+            - **Monthly Market Rent:** ${st.session_state.market_rent:,.2f} / mo  
+            - **Gross Potential Income (GPI):** ${gross_potential_income:,.2f} / yr  
+            - **Vacancy Loss ({st.session_state.vacancy_rate}%):** ${vacancy_loss_dollars:,.2f}  
+            - **Effective Gross Income (EGI):** ${effective_gross_income:,.2f}  
+            - **Operating Expenses (OpEx):** ${total_annual_opex:,.2f} ({opex_ratio:.1f}% ratio)  
+            - **Breakeven Occupancy:** **{breakeven_occupancy:.1f}%**  
+            """,
+            unsafe_allow_html=False
+        )
+        if st.button("Manage OpEx & Vacancy"):
+            st.session_state.active_page = "⚙️ Vacancy & Operating Expenses"
+            st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 🏛️ Capital Stack & Debt Summary")
+    col_d1, col_d2, col_d3, col_d4 = st.columns(4)
+    col_d1.metric("Required Equity (30%)", f"${equity_required:,.2f}")
+    col_d2.metric("Permanent Loan Amount", f"${loan_amount:,.2f}")
+    col_d3.metric("Total Cash Invested", f"${total_cash_invested:,.2f}")
+    col_d4.metric("Annual Debt Service", f"${annual_debt_service:,.2f}")
+    
+    if st.button("Manage Capital Stack & Debt"):
+        st.session_state.active_page = "🏛️ Capital Stack & Debt"
+        st.rerun()
+
+elif st.session_state.active_page == "🏗️ Hard & Soft Cost Budget":
+    if st.button("⬅️ Back to Performance Dashboard"):
+        st.session_state.active_page = "📊 Performance Dashboard"
+        st.rerun()
+
+    st.title("🏗️ Hard & Soft Cost Budget")
+    st.markdown('<p class="tagline">Today\'s Foundation. Tomorrow\'s Legacy.</p>', unsafe_allow_html=True)
+    
+    st.write("Manage your property square footage, direct construction cost basis, closing costs, and capital allocation percentages below. **Total Allocation must equal 100%.**")
+    
+    col_b1, col_b2, col_b3 = st.columns(3)
+    with col_b1:
+        st.number_input(
+            "Square Footage", 
+            min_value=500.0, max_value=5000.0, 
+            value=float(st.session_state.sq_ft), 
+            step=25.0,
+            key="sq_ft_input",
+            on_change=lambda: st.session_state.update({"sq_ft": st.session_state.sq_ft_input})
+        )
+    with col_b2:
+        st.number_input(
+            "Cost per Square Foot ($)", 
+            min_value=100.0, max_value=300.0, 
+            value=float(st.session_state.cost_per_sqft), 
+            step=2.5,
+            key="cost_sf_input",
+            on_change=lambda: st.session_state.update({"cost_per_sqft": st.session_state.cost_sf_input})
+        )
+    with col_b3:
+        st.number_input(
+            "Construction Loan Closing Costs ($) [Synced]", 
+            min_value=0.0, max_value=50000.0, 
+            value=float(st.session_state.const_closing_costs), 
+            step=250.0,
+            key="tab_closing_input",
+            on_change=lambda: st.session_state.update({"const_closing_costs": st.session_state.tab_closing_input})
+        )
+
+    edited_df = st.data_editor(st.session_state.budget_df, num_rows="dynamic", use_container_width=True, key="budget_editor")
+    st.session_state.budget_df = edited_df
+
+    total_pct = edited_df["Percentage (%)"].sum() if "Percentage (%)" in edited_df.columns else 0.0
+    if abs(total_pct - 100.0) > 0.01:
+        st.warning(f"⚠️ Current total allocation is **{total_pct:.2f}%**. Must sum to **100%**.")
+    else:
+        st.success("✅ Allocation total equals 100%.")
+
+    display_df = edited_df.copy()
+    display_df["Total Amount"] = (display_df["Percentage (%)"] / 100.0) * (sq_ft * current_cost_sf)
+    display_df["Cost / SF"] = (display_df["Percentage (%)"] / 100.0) * current_cost_sf
+    
+    st.markdown("### Budget Breakdown Summary")
+    st.metric("Total Direct/Indirect Build Cost", f"${total_build_cost:,.2f}")
+    st.dataframe(display_df.style.format({"Percentage (%)": "{:.1f}%", "Total Amount": "${:,.2f}", "Cost / SF": "${:,.2f}"}), use_container_width=True)
+
+elif st.session_state.active_page == "⚙️ Vacancy & Operating Expenses":
+    if st.button("⬅️ Back to Performance Dashboard"):
+        st.session_state.active_page = "📊 Performance Dashboard"
+        st.rerun()
+
+    st.title("⚙️ Vacancy & Operating Expenses")
+    st.markdown('<p class="tagline">Today\'s Foundation. Tomorrow\'s Legacy.</p>', unsafe_allow_html=True)
+    
+    col_v1, col_v2 = st.columns(2)
+    with col_v1:
+        st.number_input(
+            "Monthly Market Rent ($)", 
+            min_value=500.0, max_value=10000.0, 
+            value=float(st.session_state.market_rent), 
+            step=25.0,
+            key="rent_input",
+            on_change=lambda: st.session_state.update({"market_rent": st.session_state.rent_input})
+        )
+    with col_v2:
+        st.number_input(
+            "Vacancy Rate (%)", 
+            min_value=0.0, max_value=25.0, 
+            value=float(st.session_state.vacancy_rate), 
+            step=0.5,
+            key="tab_vacancy_input",
+            on_change=lambda: st.session_state.update({"vacancy_rate": st.session_state.tab_vacancy_input})
+        )
+    
+    st.markdown("---")
+    st.subheader("Operating Expenses (OpEx) Line Items")
+    st.write("Directly enter projected annual expenses. Subtracting these from Effective Gross Income yields Net Operating Income (NOI).")
+    
+    edited_opex = st.data_editor(
+        st.session_state.opex_df, 
+        num_rows="dynamic", 
+        use_container_width=True,
+        key="opex_editor"
+    )
+    st.session_state.opex_df = edited_opex
+
+    display_opex = edited_opex.copy()
+    display_opex["Share of OpEx (%)"] = (display_opex["Annual Cost ($)"] / total_annual_opex * 100.0) if total_annual_opex > 0 else 0.0
+    display_opex["Monthly Cost ($)"] = display_opex["Annual Cost ($)"] / 12.0
+
+    st.markdown("### Operating Income Statement Summary")
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("Effective Gross Income (EGI)", f"${effective_gross_income:,.2f}")
+    col_b.metric("Operating Expense Ratio", f"{opex_ratio:.2f}%")
+    col_c.metric("Net Operating Income (NOI)", f"${net_operating_income:,.2f}")
+
+    st.dataframe(display_opex.style.format({
+        "Annual Cost ($)": "${:,.2f}",
+        "Share of OpEx (%)": "{:.1f}%",
+        "Monthly Cost ($)": "${:,.2f}"
+    }), use_container_width=True)
+
+elif st.session_state.active_page == "🏛️ Capital Stack & Debt":
+    if st.button("⬅️ Back to Performance Dashboard"):
+        st.session_state.active_page = "📊 Performance Dashboard"
+        st.rerun()
+
+    st.title("🏛️ Capital Stack & Debt Terms")
+    st.markdown('<p class="tagline">Today\'s Foundation. Tomorrow\'s Legacy.</p>', unsafe_allow_html=True)
+    
+    st.subheader("Loan Closing Costs Control")
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        st.number_input(
+            "Construction Loan Closing Costs ($) [Synced]", 
+            min_value=0.0, max_value=50000.0, 
+            value=float(st.session_state.const_closing_costs), 
+            step=250.0,
+            key="capital_const_closing",
+            on_change=lambda: st.session_state.update({"const_closing_costs": st.session_state.capital_const_closing})
+        )
+    with col_c2:
+        st.number_input(
+            "Permanent Refinance Closing Costs ($)", 
+            min_value=0.0, max_value=50000.0, 
+            value=float(st.session_state.refi_closing_costs), 
+            step=250.0,
+            key="capital_refi_closing",
+            on_change=lambda: st.session_state.update({"refi_closing_costs": st.session_state.capital_refi_closing})
+        )
+
+    st.markdown("---")
+    st.subheader("Interest Rates & Points")
+    col_d1, col_d2, col_d3 = st.columns(3)
+    with col_d1:
+        st.slider(
+            "Construction Loan Rate (%)", 
+            4.0, 15.0, 
+            value=float(st.session_state.const_rate), 
+            step=0.25,
+            key="const_rate_slider",
+            on_change=lambda: st.session_state.update({"const_rate": st.session_state.const_rate_slider})
+        )
+    with col_d2:
+        st.slider(
+            "Permanent Refinance Rate (%)", 
+            3.0, 12.0, 
+            value=float(st.session_state.refi_rate), 
+            step=0.25,
+            key="refi_rate_slider",
+            on_change=lambda: st.session_state.update({"refi_rate": st.session_state.refi_rate_slider})
+        )
+    with col_d3:
+        st.slider(
+            "Permanent Refinance Points (%)", 
+            0.0, 4.0, 
+            value=float(st.session_state.refi_points), 
+            step=0.25,
+            key="refi_points_slider",
+            on_change=lambda: st.session_state.update({"refi_points": st.session_state.refi_points_slider})
+        )
+    
+    st.markdown("---")
+    st.subheader("Financing Summary & Total Cash Invested")
+    col_sum1, col_sum2, col_sum3, col_sum4 = st.columns(4)
+    col_sum1.metric("Required Equity (30%)", f"${equity_required:,.2f}")
+    col_sum2.metric("Permanent Loan Amount", f"${loan_amount:,.2f}")
+    col_sum3.metric("Refi Points & Closing", f"${refi_points_cost + st.session_state.refi_closing_costs:,.2f}")
+    col_sum4.metric("Total Cash Invested", f"${total_cash_invested:,.2f}")
+
+    st.write(f"- **Construction Loan Interest Rate:** {st.session_state.const_rate}%")
+    st.write(f"- **Construction Loan Closing Costs:** ${st.session_state.const_closing_costs:,.2f}")
+    st.write(f"- **Permanent Refinance Rate:** {st.session_state.refi_rate}% (30-Year Amortization)")
+    st.write(f"- **Permanent Refinance Points ({st.session_state.refi_points}%):** ${refi_points_cost:,.2f}")
+    st.write(f"- **Permanent Refinance Closing Costs:** ${st.session_state.refi_closing_costs:,.2f}")
+    st.write(f"- **Annual Debt Service:** ${annual_debt_service:,.2f} (${monthly_debt_service:,.2f}/mo)")
