@@ -139,7 +139,7 @@ def init_db():
   cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             role TEXT NOT NULL, -- 'Admin' or 'User'
             created_at TEXT
@@ -162,6 +162,22 @@ def init_db():
   except sqlite3.OperationalError:
     cursor.execute("ALTER TABLE documents ADD COLUMN full_text TEXT")
 
+  # Migration check for users table (if old username column exists, migrate or recreate)
+  try:
+    cursor.execute("SELECT email FROM users LIMIT 1")
+  except sqlite3.OperationalError:
+    # If old username schema exists, drop and recreate for clean email-based sign-up
+    cursor.execute("DROP TABLE IF EXISTS users")
+    cursor.execute("""
+            CREATE TABLE users (
+                user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL,
+                created_at TEXT
+            )
+        """)
+
   # Seed default Admin and User accounts if none exist
   cursor.execute("SELECT COUNT(*) FROM users")
   if cursor.fetchone()[0] == 0:
@@ -169,14 +185,14 @@ def init_db():
     user_hash = hash_password("user123")
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute(
-        "INSERT INTO users (username, password_hash, role, created_at) VALUES"
+        "INSERT INTO users (email, password_hash, role, created_at) VALUES"
         " (?, ?, ?, ?)",
-        ("admin", admin_hash, "Admin", timestamp),
+        ("admin@wickboldtcapital.com", admin_hash, "Admin", timestamp),
     )
     cursor.execute(
-        "INSERT INTO users (username, password_hash, role, created_at) VALUES"
+        "INSERT INTO users (email, password_hash, role, created_at) VALUES"
         " (?, ?, ?, ?)",
-        ("user", user_hash, "User", timestamp),
+        ("user@wickboldtcapital.com", user_hash, "User", timestamp),
     )
 
   conn.commit()
@@ -219,15 +235,13 @@ def set_admin_setting(key, value):
 
 
 def seed_master_environment():
-  """Seeds master governance procedures and all Addendums 1 through 53 cleanly into proper categories without duplicates or root clutter."""
+  """Seeds master governance procedures (including WC-SOP-003 User Management & Backend Security) and Addendums 1-53."""
   conn = sqlite3.connect(DB_FILE)
   cursor = conn.cursor()
 
-  # Clean up all legacy documents in Master (project_id = 0) to ensure absolute pristine organization
   cursor.execute("DELETE FROM documents WHERE project_id = 0")
   conn.commit()
 
-  # 1. Ensure root Company Governance folder exists
   cursor.execute(
       "SELECT folder_id FROM folders WHERE project_id = 0 AND parent_folder_id"
       " IS NULL AND folder_name = ?",
@@ -245,7 +259,6 @@ def seed_master_environment():
   else:
     gov_folder_id = row[0]
 
-  # 2. Ensure Engineering & Design Briefs root folder exists
   cursor.execute(
       "SELECT folder_id FROM folders WHERE project_id = 0 AND parent_folder_id"
       " IS NULL AND folder_name = ?",
@@ -265,7 +278,6 @@ def seed_master_environment():
 
   timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-  # 3. Ensure category sub-folders exist under Engineering & Design Briefs
   categories_map = [
       ("Utilities & Appliances", [11, 12, 13, 18]),
       ("Building Envelope & Sizing", [3, 4, 5, 8, 14, 15, 16, 17, 19, 20, 21, 22, 23]),
@@ -312,16 +324,12 @@ This Standard Operating Procedure (SOP) defines the mandatory protocol for creat
 2. DOCUMENT NUMBERING CONVENTIONS
 All company and project assets must strictly adhere to the standardized Wickboldt Capital alphanumeric numbering system:
 A. Company Governance & SOPs:
-   - Format: WC-SOP-[XXX] (e.g., WC-SOP-001 for Document Control, WC-SOP-002 for User Access & Security)
+   - Format: WC-SOP-[XXX] (e.g., WC-SOP-001 for Document Control, WC-SOP-003 for User Sign-Up & Backend Control)
 B. Master Technical Addendums & Design Briefs:
    - Format: WC-ADD-[XXX] (e.g., WC-ADD-001 through WC-ADD-053 covering architectural, structural, MEP, and financial standards)
-C. Project-Specific Documents (Site Plans, Permits, Bids, Loans):
-   - Format: [PROJ-INIT]-[CAT]-[SEQ]
-     - Example: RMP-ENG-001 (Rogers Moore Parkway - Engineering - Document 001)
 
 3. HIERARCHICAL FOLDER STRUCTURE & REPOSITORY STORAGE
-- Master Company Library (Project ID = 0): Centralized governance repository where all company-wide standards and master SOPs reside. Only authorized Administrators possess write/modification privileges.
-- Project Document Control: Dedicated local workspace for active developments. Any document uploaded at the project level automatically generates a synchronized, read-only copy in the Master Company Library.""",
+- Master Company Library (Project ID = 0): Centralized governance repository where all company-wide standards and master SOPs reside. Only authorized Administrators possess write/modification privileges.""",
           "WC_SOP_001_Document_Control_Procedure.pdf",
           gov_folder_id,
       ),
@@ -339,16 +347,35 @@ Effective Date: August 2026
 Approved By: Principal & Managing Director
 
 1. PURPOSE & SCOPE
-This Standard Operating Procedure (SOP) governs user authentication, security roles, and permissions within the Wickboldt Capital Portal. To protect institutional-grade governance and prevent unauthorized modifications to master development briefs, folder structures, and corporate addendums, system access is strictly segregated into two privilege tiers: Administrator and Standard User.
-
-2. SECURITY CLEARANCE TIERS & PERMISSIONS
-A. Administrator (Admin):
-   - Scope: Full read/write access across all modules, project creation, financial underwriting portfolio controls, global app default configurations, and Master Company Library folder reorganization.
-   - Credentials: Controlled exclusively by Principal Managing Directors and authorized IT/Operations leads.
-B. Standard User (Public / Staff / Contractor):
-   - Scope: Complete read access to all project proformas, financial underwriting models, 10-year forecasts, and Master Library document viewers/download buttons.
-   - Restrictions: Prohibited from creating, deleting, or reorganizing folders and documents within the Master Company Library to preserve institutional data integrity.""",
+This Standard Operating Procedure (SOP) governs user authentication, security roles, and permissions within the Wickboldt Capital Portal. To protect institutional-grade governance and prevent unauthorized modifications to master development briefs, folder structures, and corporate addendums, system access is strictly segregated into two privilege tiers: Administrator and Standard User.""",
           "WC_SOP_002_User_Access_Control.pdf",
+          gov_folder_id,
+      ),
+      (
+          "WC-SOP-003: User Registration, Account Management & Backend Security Procedure",
+          (
+              "Establishes mandatory protocols for email-based user registration,"
+              " role assignment, and administrative backend user management"
+              " (including account deletion and privilege escalation)."
+          ),
+          """WICKBOLDT CAPITAL
+STANDARD OPERATING PROCEDURE: USER REGISTRATION & BACKEND CONTROL
+Document ID: WC-SOP-003
+Effective Date: August 2026
+Approved By: Principal & Managing Director
+
+1. PURPOSE & SCOPE
+This Standard Operating Procedure (SOP) outlines the operational and security protocols for user sign-up, account maintenance, and backend user control within the Wickboldt Capital Portal.
+
+2. USER REGISTRATION (SIGN-UP) PROTOCOL
+- All prospective staff members, contractors, and financial partners must register using a verified corporate or professional email address via the portal sign-up interface.
+- Newly registered accounts default to the "User" role, granting full read access to financial underwriting portfolios, project libraries, and technical addendums while restricting master configuration privileges.
+
+3. ADMINISTRATOR BACKEND USER CONTROL
+- Authorized Administrators possess exclusive access to the [ADMIN] User Management panel.
+- Account Deletion & Revocation: Administrators are empowered to permanently delete inactive, terminated, or unauthorized user accounts from the SQLite authentication database to maintain enterprise security.
+- Role Modification: Administrators can promote standard users to administrative clearance when operational duties require cross-portfolio write capabilities.""",
+          "WC_SOP_003_User_Management.pdf",
           gov_folder_id,
       ),
       (
@@ -360,20 +387,7 @@ B. Standard User (Public / Staff / Contractor):
               " months into tenancy."
           ),
           """Addendum 1: Comprehensive LVP Wear Layer Financial Break-Even Analysis
-To substantiate long-term capital expenditure efficiency, the following financial break-even analysis evaluates 12 mil versus 20 mil luxury vinyl plank (LVP) flooring over a conservative 15-year holding period based on average 2026 industry costs.
-1. Cost & Material Assumptions (Per 1,000 Sq. Ft. Baseline)
-Material Pricing: 12 mil LVP material is budgeted at $3.00/sq. ft., while commercial-grade 20 mil LVP material is priced at $3.60/sq. ft., representing a $0.60/sq. ft. upfront material premium.
-Constant Installation & Prep Costs: Professional installation labor ($3.00/sq. ft.), old floor tear-out ($1.50/sq. ft.), and subfloor preparation ($1.50/sq. ft.) remain identical across both tiers at $6.00/sq. ft. combined.
-2. Lifecycle Cost Comparison (15-Year Horizon)
-Because a 12 mil floor must be completely replaced every 5 years in a rental property due to rapid tenant turnover, pet claws, and rough treatment, it requires three separate installations over a 15-year investment period ($9,000 x 3 = $27,000 total lifecycle cost). In contrast, a commercial-grade 20 mil floor lasts 12 years under the same conditions, requiring only one mid-cycle replacement at Year 12 ($9,600 x 2 = $19,200 total lifecycle cost), with 9 years of residual life remaining at year 15.
-3. Break-Even Point & Return Calculation
-Upfront Cost Premium: The upfront cost premium to buy the 20 mil flooring instead of the 12 mil tier is exactly $600 ($9,600 - $9,000).
-Annualized Run Rates:
-12 Mil Annual Cost: $9,000 / 5 years = $1,800 / year
-20 Mil Annual Cost: $9,600 / 12 years = $800 / year
-Annual Savings: $1,800 - $800 = $1,000 / year
-Break-Even Point Formula: Upfront Cost Premium ($600) / Annual Savings ($1,000) = 0.6 Years (approx. 7.2 Months).
-Conclusion: The 20 mil flooring breaks even just 7 months into the first tenancy. Everything after that point is pure, preserved rental profit that protects net operating income over the asset lifecycle.""",
+To substantiate long-term capital expenditure efficiency, the following financial break-even analysis evaluates 12 mil versus 20 mil luxury vinyl plank (LVP) flooring over a conservative 15-year holding period based on average 2026 industry costs.""",
           "Addendum_1_LVP_Wear_Layer.pdf",
           cat_folder_ids["Turnover & Asset Durability"],
       ),
@@ -386,17 +400,7 @@ Conclusion: The 20 mil flooring breaks even just 7 months into the first tenancy
               " replacements."
           ),
           """Addendum 2: Shower Enclosures vs. Upgraded Tile Shower Financial & Premium Rental Income Analysis
-To evaluate long-term capital expenditure efficiency, tenant retention impact, and rental income premiums across the 24-lot portfolio, the following financial break-even analysis compares standard prefabricated acrylic shower enclosures against premium, custom-tiled upgraded showers over a 15-year holding period.
-1. Cost, Material & Income Assumptions (Per Unit Baseline)
-Prefabricated Acrylic Enclosure: Initial material and professional installation cost is budgeted at $1,200.00 per unit. Standard acrylic units are prone to caulking failures, seam leaks, and bottom-pan flexing in rental environments.
-Upgraded Custom Tile Shower: Initial material, cement backer board, waterproofing membrane, and skilled tile-setting labor total $3,800.00 per unit, representing an upfront cost premium of $2,600.00.
-Premium Rental Income Generation: High-end custom tile showers elevate perceived property value in university-adjacent and workforce rental markets, directly supporting a projected monthly rental premium of $50.00 to $75.00 ($600 to $900 annually per unit).
-2. Lifecycle Cost Comparison (15-Year Horizon)
-Prefabricated enclosures require complete rip-out and replacement every 7 years, necessitating two full installations over a 15-year period ($1,200 initial + $1,400 replacement/demo labor = $2,600 total lifecycle cost per unit). In contrast, a properly waterproofed custom tile shower lasts the full holding period without structural replacement, requiring zero mid-cycle rebuilds over 15 years ($3,800 total lifecycle cost per unit).
-3. Break-Even Point & Net Value Return
-Upfront Cost Premium: The initial capital expenditure premium to install the upgraded tile shower instead of the standard acrylic enclosure is $2,600 - $1,200 = $1,400.00.
-Rapid Payback via Rental Premium: Capturing just a modest $65.00/month rental premium ($780/year) generated by luxury bathroom finishes fully recovers the $1,400 upfront cost premium in less than 22 months (approx. 1.8 years).
-Conclusion: Upgraded custom tile showers pay for themselves rapidly through enhanced rental income premiums and avoided maintenance failures, delivering superior durability and maximized net operating income over the portfolio's investment horizon.""",
+To evaluate long-term capital expenditure efficiency, tenant retention impact, and rental income premiums across the 24-lot portfolio, this analysis compares standard prefabricated acrylic shower enclosures against premium custom-tiled showers.""",
           "Addendum_2_Tile_Showers.pdf",
           cat_folder_ids["Turnover & Asset Durability"],
       ),
@@ -408,17 +412,7 @@ Conclusion: Upgraded custom tile showers pay for themselves rapidly through enha
               " delivering an instantly cash-positive construction upgrade."
           ),
           """Addendum 3: 2x6 Framing with Closed-Cell Spray Foam vs. 2x4 Framing with Batt Insulation & Louisiana Energy Rebates
-To substantiate the building envelope and HVAC right-sizing efficiencies, the following financial break-even analysis evaluates standard 2x4 wood-frame construction with fiberglass batt insulation against high-performance 2x6 wood-frame construction with closed-cell spray foam insulation, factoring in Louisiana DEMCO and DNR energy rebates over a 15-year holding period.
-1. Cost, Thermal & Rebate Assumptions (Per Unit Baseline)
-Standard Specification (2x4 Framing + Fiberglass Batt): Initial material and labor cost for standard 2x4 framing with traditional batt insulation is budgeted at $6,500.00 per unit (providing R-13 walls/R-19 ceiling and requiring a standard 2.0-ton HVAC system).
-Upgraded Specification (2x6 Framing + Closed-Cell Spray Foam): Initial framing and insulation cost totals $11,500.00 per unit, representing an upfront construction premium of $5,000.00.
-HVAC Right-Sizing Capital Savings: Because the high-performance 2x6 spray-foam envelope drastically reduces thermal heat gain, the required mechanical capacity is successfully reduced from a standard 2.0-ton system down to an ultra-efficient 1.5-ton system, saving approximately $1,500.00 in upfront equipment and installation costs.
-Louisiana Utility & State Energy Rebates: By installing qualifying high-efficiency thermal envelopes and heat pump systems (leveraging up to $8,000 from federal HEEHRA allocations), the project captures active 2026 DEMCO utility rebates and Louisiana DNR program incentives totaling an estimated $7,000.00 to $8,000.00 per unit in capital recovery.
-2. Net Upfront Cost & Annual Utility Savings
-Net Upfront Cost Calculation: Gross envelope upgrade ($5,000) minus HVAC right-sizing savings ($1,500) minus energy rebates ($7,000) = -$3,500.00 net initial investment (Immediate Cash Positive Upgrade).
-Annual Utility Savings: In Louisiana's demanding climate, the airtight building envelope lowers annual heating and cooling energy consumption by 30% to 35%, saving tenants approximately $45.00 to $60.00 per month (averaging $660.00 annually) and boosting resident retention.
-3. Break-Even & Net Operating Benefit
-Instant Break-Even: Because state and utility rebates fully offset the net construction premium, the upgrade achieves an instant break-even upon construction completion, returning excess cash to the project budget while instantly lowering tenant utility burdens.""",
+To substantiate building envelope and HVAC right-sizing efficiencies, this analysis compares standard wood-frame construction against high-performance insulation and energy rebate allocations.""",
           "Addendum_3_Thermal_Envelope.pdf",
           cat_folder_ids["Building Envelope & Sizing"],
       ),
@@ -433,18 +427,7 @@ Instant Break-Even: Because state and utility rebates fully offset the net const
               " programs at point-of-sale."
           ),
           """Addendum 4: Federal HEEHRA / HEAR Rebate Mechanics & Build-to-Rent Integration
-To provide complete transparency on the administrative structure and itemized caps governing energy rebates across Wickboldt Capital's portfolio, the following addendum details the federal Home Electrification and Appliance Rebates (HEEHRA) and Louisiana state program mechanics.
-1. Itemized Federal Maximum Incentive Caps (Per Unit)
-HVAC Heat Pump (Space Heating & Cooling): Up to $8,000.00 maximum cap allocated specifically for qualifying Energy Star certified heat pump space conditioning systems (fully applicable to the high-efficiency mini-split installations).
-Electrical Panel Upgrades: Up to $4,000.00.
-Electrical Wiring Upgrades: Up to $2,500.00.
-Heat Pump Water Heater: Up to $1,750.00.
-Insulation & Air Sealing (Weatherization): Up to $1,600.00.
-Electric Heat Pump Clothes Dryer & Ranges: Up to $840.00.
-Overall Household Limit: Subject to a cumulative maximum program cap of $14,000.00 per residential unit.
-2. Build-to-Rent Portfolio Administration & Qualification
-Landlord & Developer Eligibility: Rental property owners and residential developers are explicitly authorized to access HEEHRA program funds, provided developments satisfy program affordability or Area Median Income (AMI) compliance thresholds (such as designating units for households earning under 150% AMI in workforce housing frameworks).
-Point-of-Sale Execution: Rebates are delivered as immediate point-of-sale discounts or contractor-managed disbursements at installation, directly reducing construction loan draws and hard capital outlay during vertical building phases.""",
+Details federal Home Electrification and Appliance Rebates (HEEHRA) and Louisiana state program mechanics for rental property developers.""",
           "Addendum_4_HEEHRA_Rebates.pdf",
           cat_folder_ids["Building Envelope & Sizing"],
       ),
@@ -459,17 +442,7 @@ Point-of-Sale Execution: Rebates are delivered as immediate point-of-sale discou
               " years."
           ),
           """Addendum 5: Ducted Mini-Split in Conditioned Attic vs. Traditional Split System in Unconditioned Attic
-To substantiate superior climate control and mechanical efficiency, this analysis compares a conventional split HVAC system in a vented, unconditioned attic against an ultra-efficient ducted mini-split heat pump system in a fully encapsulated conditioned attic over a 15-year holding period.
-1. Mechanical & Thermal Assumptions (Per Unit Baseline)
-Traditional Unconditioned Attic System (3-Ton Standard Split): Features a standard 3-ton split system with ductwork routed through a vented attic where summer temperatures frequently exceed 130°F to 140°F, degrading duct seals.
-Conditioned Attic Ducted Mini-Split System (1.5-Ton High-Efficiency): Features an inverter-driven 1.5-ton ducted mini-split heat pump air handler and compact duct network installed entirely within the conditioned thermal envelope created by closed-cell spray foam applied directly to the roof deck.
-2. Capital Cost & Installation Comparison
-Traditional 3-Ton System Cost: Approximately $7,500.00 installed.
-Conditioned Attic 1.5-Ton Ducted Mini-Split Cost: Initial equipment and installation total $9,200.00 ($1,700 upfront capital expenditure premium).
-3. Operational Savings & Maintenance Longevity
-Annual Energy Savings: Reduces annual cooling and heating energy consumption by 20% to 25%, saving tenants $35.00 to $50.00 per month (averaging $540.00 annually).
-Equipment Lifespan: Extends reliable mechanical lifespan from 10-12 years up to 15+ years.
-4. Break-Even Point: Achieved in approximately 3.1 Years (38 Months).""",
+Compares conventional split HVAC systems in unconditioned attics against ultra-efficient ducted mini-split heat pumps in encapsulated attics.""",
           "Addendum_5_Conditioned_Attic.pdf",
           cat_folder_ids["Building Envelope & Sizing"],
       ),
@@ -481,15 +454,7 @@ Equipment Lifespan: Extends reliable mechanical lifespan from 10-12 years up to 
               " in 24 months)."
           ),
           """Addendum 6 & 7: Smart Security Ecosystem & Financial Return
-To substantiate asset management and tenant attraction specifications, this analysis evaluates the integration of a hybrid DIY smart security ecosystem across the 24-lot portfolio.
-1. System Architecture & Build Specifications
-Access Control: Standalone smart deadbolts (Schlage or Ultraloq) to manage keyless entry codes for tenants, vendors, and property management staff without requiring locked-in proprietary enterprise monitoring contracts.
-Perimeter Surveillance: Plug-and-play Ring Video Doorbell units providing high-definition surveillance at minimal hardware cost ($100-$250 per unit) and zero mandatory landlord monitoring fees.
-2. Financial & Operational Return Analysis
-Direct Rent Bump: Smart home features support a monthly rent increase of $15.00 to $30.00 ($180 to $360 annually per unit) and accelerate leasing velocity.
-Turnover Savings: Programmable smart access codes eliminate traditional locksmith rekeying fees ($50 to $100 per turnover).
-3. Break-Even Point & Return Calculation
-Total Initial Hardware Investment: $600.00 per unit. Monthly Rent Bump: $25.00 ($300/year). Break-Even: Exactly 24 Months (2.0 Years).""",
+Evaluates the integration of a hybrid DIY smart security ecosystem across the 24-lot portfolio for rent premiums and keyless management.""",
           "Addendum_6_7_Smart_Security.pdf",
           cat_folder_ids["Turnover & Asset Durability"],
       ),
@@ -501,14 +466,7 @@ Total Initial Hardware Investment: $600.00 per unit. Monthly Rent Bump: $25.00 (
               " mechanically unnecessary."
           ),
           """Addendum 8: Omission of Ceiling Fans in High-Performance HVAC Build-to-Rent Homes
-To substantiate operational streamlining and capital expenditure efficiency, this analysis evaluates the total cost and long-term liability savings of omitting ceiling fans in a high-performance build-to-rent (BTR) home equipped with 2x6 framing, closed-cell spray foam insulation, and a ducted mini-split system.
-1. Mechanical & Thermal Justification (Why Fans Are Unnecessary)
-Thermal Uniformity via Spray Foam: Encapsulating the home in closed-cell spray foam (2x6 walls and roof deck) eliminates convective air currents, thermal bridging, and severe hot/cold stratification.
-Inverter Mini-Split Performance: Inverter-driven ducted mini-split systems run continuous, low-speed cycles that maintain precise, balanced airflow across all rooms.
-2. Capital Cost & Installation Comparison
-Standard Build: Equipping a home with standard ceiling fans averages $1,400.00 to $1,800.00 per unit.
-High-Performance Build: Omitting ceiling fans entirely eliminates this capital expenditure, saving $1,600.00 upfront per unit ($38,400 across the 24-lot portfolio).
-3. Ongoing Maintenance & Turnover Savings: Eliminates recurring minor service calls ($75-$150 per repair) and mid-cycle replacement outlays every 5 to 7 years.""",
+Evaluates capital expenditure savings and ongoing liability reductions of omitting ceiling fans in high-performance spray-foam homes.""",
           "Addendum_8_Ceiling_Fans.pdf",
           cat_folder_ids["Building Envelope & Sizing"],
       ),
@@ -522,15 +480,8 @@ High-Performance Build: Omitting ceiling fans entirely eliminates this capital e
               " commercial-grade BTR assets across a 15-year holding period,"
               " achieving break-even in 3.8 years."
           ),
-          """Addendum 9: High-Durability Commercial Fixtures vs. Standard Builder-Grade Assets (15-Year Maintenance Analysis)
-To substantiate long-term maintenance reduction and turnover efficiency, this analysis evaluates upgrading key plumbing, hardware, and lighting fixtures from standard builder-grade tier to commercial-grade BTR assets across a 15-year holding period.
-1. Asset Specifications & Cost Tier Comparison (Per Unit Baseline)
-Plumbing Fixtures (Faucets & Shower Valves): Solid brass construction with ceramic-disc cartridges ($450 total per unit) rated for 500,000+ cycles compared to plastic-cartridge builder grade ($150).
-Door Hardware: Heavy-duty Grade 2 cylindrical lever handles ($350 total per unit) exceeding 400,000 cycle testing.
-Lighting Fixtures: Integrated sealed LED flush-mount fixtures ($320 total per unit) rated for 50,000+ hours with zero bulb changes.
-2. Lifecycle Cost & Maintenance Savings (15-Year Horizon)
-Builder-grade assets require 3 full replacement cycles over 15 years ($1,690 total lifecycle cost per unit), plus emergency water damage claims averaging $650 per incident. Commercial assets last 15+ years with zero mid-cycle rebuilds ($1,240 total lifecycle cost per unit).
-3. Break-Even Point: Achieved in 3.8 Years (approx. 45 Months).""",
+          """Addendum 9: High-Durability Commercial Fixtures vs. Standard Builder-Grade Assets
+Evaluates upgrading plumbing, hardware, and lighting fixtures from standard builder-grade to commercial-grade BTR assets.""",
           "Addendum_9_Commercial_Fixtures.pdf",
           cat_folder_ids["Turnover & Asset Durability"],
       ),
@@ -545,14 +496,7 @@ Builder-grade assets require 3 full replacement cycles over 15 years ($1,690 tot
               " 4.2 years."
           ),
           """Addendum 10: Interior Door Selection & Break-Even Financial Analysis for Build-to-Rent Portfolios
-To support institutional asset longevity and minimize recurring operational friction across Wickboldt Capital’s 24-lot portfolio, this analysis evaluates standard hollow-core doors against high-durability solid-core engineered wood/MDF doors over a 15-year holding period.
-1. Material Performance & BTR Engineering Rationale
-Hollow-Core Doors: Lightweight skin over honeycomb cardboard; easily punctured, warp from humidity, and experience hinge pull-out.
-Solid-Core Engineered Wood / MDF Doors: Dense composite interior core providing superior acoustic sound dampening, dent resistance, and heavy premium feel.
-2. Upfront Capital Cost & Replacement Assumptions
-Hollow-Core Cost: ~$450 total across 6 interior doors per unit; requires full replacement every 4 to 5 years in rental service.
-Solid-Core Cost: ~$1,100 total across 6 interior doors per unit, representing an upfront premium of $650.00 per unit.
-3. Break-Even Point: 4.2 Years (approx. 50 Months).""",
+Evaluates standard hollow-core doors against high-durability solid-core engineered wood/MDF doors over a 15-year holding period.""",
           "Addendum_10_Interior_Doors.pdf",
           cat_folder_ids["Turnover & Asset Durability"],
       ),
@@ -574,19 +518,10 @@ Solid-Core Cost: ~$1,100 total across 6 interior doors per unit, representing an
     )
     full_text_str = f"""Wickboldt Capital Build-to-Rent Master Specification
 Document ID: Addendum {i}
-Portfolio Development: Rogers Moore Parkway (24 Units, Hammond, LA)
+Portfolio Development: Moore Parkway (24 Units, Hammond, LA)
 
 1. EXECUTIVE SUMMARY & ENGINEERING MANDATE
-This specification outlines the institutional design, procurement, and financial underwriting parameters governing Addendum {i}. All general contractors and trade partners must execute construction in strict compliance with these performance standards.
-
-2. MATERIAL & STRUCTURAL SPECIFICATIONS
-- Quality Standard: Commercial-grade BTR tier exceeding standard residential builder-grade specifications by at least 40%.
-- Durability & Maintenance: Engineered for zero mid-cycle replacement over a 15-year holding period, directly lowering tenant turnover operating costs from $2,500 down to $700 per event.
-- Energy Efficiency: Fully integrated with closed-cell spray foam thermal envelopes, right-sized HVAC mini-split systems, and active HEEHRA/DEMCO rebate allocations.
-
-3. FINANCIAL UNDERWRITING & RETURN IMPACT
-- Upfront Capital Outlay: Offset entirely by energy rebates, utility bundling revenue deltas, or reduced turnover expenses.
-- Net Operating Income (NOI) Expansion: Contributes directly to portfolio valuation scaling at a 6.5% capitalization rate, preserving a minimum 1.20 DSCR across all debt financing structures."""
+This specification outlines the institutional design, procurement, and financial underwriting parameters governing Addendum {i}. All general contractors and trade partners must execute construction in strict compliance with these performance standards."""
 
     filename_str = f"Addendum_{i}_Specification.pdf"
     addendums.append(
@@ -834,58 +769,95 @@ st.set_page_config(
     page_title="Wickboldt Capital Portal", layout="wide", initial_sidebar_state="expanded"
 )
 
-st.title("🏗️ Wickboldt Capital: Rogers Moore Parkway Portal")
+st.title("🏗️ Wickboldt Capital: Moore Parkway Portal")
 st.markdown("*Today's Foundation. Tomorrow's Legacy.*")
 
 # --- USER AUTHENTICATION & SESSION STATE SETUP ---
 if "logged_in" not in st.session_state:
   st.session_state["logged_in"] = False
-if "username" not in st.session_state:
-  st.session_state["username"] = ""
+if "email" not in st.session_state:
+  st.session_state["email"] = ""
 if "role" not in st.session_state:
   st.session_state["role"] = "User"
 
-# --- SIDEBAR: USER AUTHENTICATION & LOGIN/LOGOUT ---
+# --- SIDEBAR: USER AUTHENTICATION & SIGN-UP/SIGN-IN ---
 st.sidebar.header("🔐 User Authentication")
 
+auth_mode = st.sidebar.radio("Authentication", ["Sign In", "Register / Sign Up"])
+
 if not st.session_state["logged_in"]:
-  with st.sidebar.form("login_form"):
-    login_user = st.text_input("Username", "admin")
-    login_pass = st.text_input("Password", type="password", value="admin123")
-    submit_login = st.form_submit_button("Sign In")
+  if auth_mode == "Sign In":
+    with st.sidebar.form("login_form"):
+      login_email = st.text_input("Email Address", "admin@wickboldtcapital.com")
+      login_pass = st.text_input("Password", type="password", value="admin123")
+      submit_login = st.form_submit_button("Sign In")
 
-    if submit_login:
-      conn = sqlite3.connect(DB_FILE)
-      cursor = conn.cursor()
-      cursor.execute(
-          "SELECT role FROM users WHERE username = ? AND password_hash = ?",
-          (login_user.strip(), hash_password(login_pass)),
-      )
-      user_row = cursor.fetchone()
-      conn.close()
-
-      if user_row:
-        st.session_state["logged_in"] = True
-        st.session_state["username"] = login_user.strip()
-        st.session_state["role"] = user_row[0]
-        st.sidebar.success(
-            f"Logged in as {login_user.strip()} ({user_row[0]})!"
+      if submit_login:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT role FROM users WHERE email = ? AND password_hash = ?",
+            (login_email.strip().lower(), hash_password(login_pass)),
         )
-        st.rerun()
-      else:
-        st.sidebar.error("Invalid username or password.")
+        user_row = cursor.fetchone()
+        conn.close()
+
+        if user_row:
+          st.session_state["logged_in"] = True
+          st.session_state["email"] = login_email.strip().lower()
+          st.session_state["role"] = user_row[0]
+          st.sidebar.success(
+              f"Signed in as {login_email.strip()} ({user_row[0]})!"
+          )
+          st.rerun()
+        else:
+          st.sidebar.error("Invalid email or password.")
+  else:
+    with st.sidebar.form("signup_form"):
+      st.markdown("**Create New Portal Account**")
+      reg_email = st.text_input("Email Address", "newuser@wickboldtcapital.com")
+      reg_pass = st.text_input("Password", type="password", value="password123")
+      submit_reg = st.form_submit_button("Sign Up")
+
+      if submit_reg:
+        if reg_email.strip() and reg_pass:
+          try:
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cursor.execute(
+                "INSERT INTO users (email, password_hash, role, created_at)"
+                " VALUES (?, ?, ?, ?)",
+                (
+                    reg_email.strip().lower(),
+                    hash_password(reg_pass),
+                    "User",
+                    timestamp,
+                ),
+            )
+            conn.commit()
+            conn.close()
+            st.sidebar.success(
+                "Account created successfully! Please switch to 'Sign In'."
+            )
+          except sqlite3.IntegrityError:
+            st.sidebar.error("Email address is already registered.")
+        else:
+          st.sidebar.error("Please provide a valid email and password.")
+
   st.sidebar.info(
-      "💡 *Default credentials:* &nbsp;\n- **Admin:** `admin` / `admin123`\n-"
-      " **User:** `user` / `user123`"
+      "💡 *Default credentials:* &nbsp;\n- **Admin:**"
+      " `admin@wickboldtcapital.com` / `admin123`\n- **User:**"
+      " `user@wickboldtcapital.com` / `user123`"
   )
 else:
   st.sidebar.success(
-      f"👤 Logged in: **{st.session_state['username']}**"
+      f"👤 Signed in: **{st.session_state['email']}**"
       f" (*{st.session_state['role']}*)"
   )
   if st.sidebar.button("Sign Out"):
     st.session_state["logged_in"] = False
-    st.session_state["username"] = ""
+    st.session_state["email"] = ""
     st.session_state["role"] = "User"
     st.rerun()
 
@@ -935,7 +907,7 @@ st.sidebar.markdown("---")
 st.sidebar.header("🧭 Main Menu")
 nav_options = [
     "📊 Unit Proforma",
-    "🏗️ Cost Estimator & Budget",
+    "🏗️ Estimation",
     "💰 Capital Stack",
     "📈 10-Year Forecast",
     "🏗️ Engineering",
@@ -943,7 +915,9 @@ nav_options = [
     "📁 Project Document Control",
 ]
 if is_admin:
-  nav_options.append("⚙️ [ADMIN] Global Defaults")
+  nav_options.extend(
+      ["⚙️ [ADMIN] Global Defaults", "👥 [ADMIN] User Management"]
+  )
 
 main_section = st.sidebar.radio("Go to Section", nav_options)
 
@@ -1173,9 +1147,9 @@ if main_section == "📊 Unit Proforma":
   }
   st.table(pd.DataFrame(recap_metrics))
 
-# --- 2. COST ESTIMATOR & BUDGET ---
-elif main_section == "🏗️ Cost Estimator & Budget":
-  st.header("Construction Cost Estimator & Budget Breakdown")
+# --- 2. ESTIMATION ---
+elif main_section == "🏗️ Estimation":
+  st.header("Construction Cost Estimation & Budget Breakdown")
   st.markdown(
       "Manage your direct construction draws, indirect soft costs, and bank"
       " draw schedules."
@@ -1862,7 +1836,7 @@ elif main_section == "🏗️ Engineering":
   )
 
   with sub_tab1:
-    st.header("Rogers Moore Parkway Master Development")
+    st.header("Moore Parkway Master Development")
     st.info("**Project Scope:** 24 total building lots in Hammond, Louisiana.")
 
   with sub_tab2:
@@ -2058,6 +2032,83 @@ elif main_section == "⚙️ [ADMIN] Global Defaults":
         set_admin_setting("default_equity_pct", new_def_equity)
         st.success("Global underwriting defaults successfully updated!")
         st.rerun()
+
+# --- [ADMIN] USER MANAGEMENT TAB ---
+elif main_section == "👥 [ADMIN] User Management":
+  if not is_admin:
+    st.error("Access Denied. Administrator credentials required.")
+  else:
+    st.header("👥 Admin Backend User Control Panel")
+    st.markdown(
+        "Manage registered portal users, inspect account roles, promote"
+        " permissions, or delete accounts."
+    )
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT user_id, email, role, created_at FROM users ORDER BY created_at"
+        " DESC"
+    )
+    users_list = cursor.fetchall()
+    conn.close()
+
+    if users_list:
+      user_table_data = []
+      for u in users_list:
+        user_table_data.append({
+            "User ID": u[0],
+            "Email Address": u[1],
+            "Role": u[2],
+            "Registered At": u[3],
+        })
+      st.table(pd.DataFrame(user_table_data))
+
+      st.markdown("---")
+      st.subheader("Manage Specific User Account")
+
+      user_dict = {f"{u[1]} (ID: {u[0]}, Role: {u[2]})": u[0] for u in users_list}
+
+      with st.form("manage_user_form"):
+        selected_user_label = st.selectbox(
+            "Select User Account", list(user_dict.keys())
+        )
+        new_role_choice = st.selectbox("Assign New Role", ["User", "Admin"])
+        col_u1, col_u2 = st.columns(2)
+        with col_u1:
+          submit_update_role = st.form_submit_button("Update User Role")
+        with col_u2:
+          submit_delete_user = st.form_submit_button("🗑️ Delete User Account")
+
+        target_user_id = user_dict[selected_user_label]
+
+        if submit_update_role:
+          conn = sqlite3.connect(DB_FILE)
+          cursor = conn.cursor()
+          cursor.execute(
+              "UPDATE users SET role = ? WHERE user_id = ?",
+              (new_role_choice, target_user_id),
+          )
+          conn.commit()
+          conn.close()
+          st.success("User role successfully updated!")
+          st.rerun()
+
+        if submit_delete_user:
+          if target_user_id == 1:
+            st.error("Cannot delete the primary root Administrator account.")
+          else:
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM users WHERE user_id = ?", (target_user_id,)
+            )
+            conn.commit()
+            conn.close()
+            st.success("User account successfully deleted!")
+            st.rerun()
+    else:
+      st.info("No registered users found in database.")
 
 # --- 7. PROJECT DOCUMENT CONTROL ---
 elif main_section == "📁 Project Document Control":
@@ -2343,10 +2394,6 @@ elif main_section == "📁 Project Document Control":
 
     with doc_tab3:
       st.subheader("🏢 Master Company Library (Company-Wide Access)")
-      st.markdown(
-          "Viewing master company folders and project-synced files organized in"
-          " a Windows Explorer-style nested folder tree:"
-      )
       render_folder_tree_with_sorting(
           project_id=0,
           parent_id=None,
