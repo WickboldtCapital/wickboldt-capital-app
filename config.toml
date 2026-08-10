@@ -1,0 +1,15 @@
+[theme]
+# The primary accent color (Used for buttons, sliders, and active sidebar icons)
+primaryColor = "#D4AF37" 
+
+# The main page background color (Crisp white)
+backgroundColor = "#FFFFFF" 
+
+# The sidebar background color (Deep Royal Blue)
+secondaryBackgroundColor = "#002D62" 
+
+# The text color for the main page
+textColor = "#1E1E1E" 
+
+# Font style
+font = "sans serif"
