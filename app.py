@@ -32,6 +32,7 @@ def set_svg_favicon(svg_path):
     except Exception:
         pass
 
+# IMPORTANT: Make sure this exactly matches the file name in your assets folder!
 set_svg_favicon("assets/logo.svg")
 
 # Apply custom Wickboldt styling
@@ -50,6 +51,8 @@ if "active_project" not in st.session_state:
     st.session_state["active_project"] = None
 if "nav_mode" not in st.session_state:
     st.session_state["nav_mode"] = "home"
+if "role" not in st.session_state:
+    st.session_state["role"] = "viewer"
 
 # ==========================================
 # 📄 DEDICATED DOCUMENT VIEWER ROUTE
@@ -96,8 +99,10 @@ elif not st.session_state.get("active_project"):
     with st.sidebar:
         st.markdown(get_logo_html(), unsafe_allow_html=True)
         st.markdown(f"**Logged in as:** `{st.session_state.get('email', 'User')}`")
+        st.markdown(f"**Role:** `{st.session_state.get('role', 'Viewer').capitalize()}`")
         if st.button("🚪 Sign Out", use_container_width=True):
             st.session_state["logged_in"] = False
+            st.session_state["role"] = "viewer"
             st.session_state["nav_mode"] = "home"
             st.rerun()
         st.markdown("---")
@@ -111,9 +116,11 @@ else:
     with st.sidebar:
         st.markdown(get_logo_html(), unsafe_allow_html=True)
         st.markdown(f"**Logged in as:** `{st.session_state.get('email', 'User')}`")
+        st.markdown(f"**Role:** `{st.session_state.get('role', 'Viewer').capitalize()}`")
         if st.button("🚪 Sign Out", use_container_width=True):
             st.session_state["logged_in"] = False
             st.session_state["active_project"] = None
+            st.session_state["role"] = "viewer"
             st.session_state["nav_mode"] = "home"
             st.rerun()
         st.markdown("---")
@@ -123,30 +130,40 @@ else:
             st.rerun()
         st.markdown("---")
 
-    pg = st.navigation({
+    # --- ROLE-BASED ACCESS CONTROL (RBAC) ---
+    user_role = st.session_state.get("role", "viewer").lower()
+
+    # Define standard pages everyone sees
+    pages = {
         "Project Management": [
             st.Page("views/dashboard.py", title="Executive Dashboard", icon="📊", default=True),
-            st.Page("views/control.py", title="Project Control", icon="📁"),
             st.Page("views/scheduling.py", title="Scheduling & Milestones", icon="🗓️"),
         ],
         "Financials & Underwriting": [
-            st.Page("views/estimation.py", title="Cost Estimation", icon="🧮"),
             st.Page("views/proforma.py", title="Proforma & Underwriting", icon="📈"),
-            st.Page("views/forecasting.py", title="Cash Flow Forecasting", icon="🔮"),
-            st.Page("views/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"),
-        ],
-        "Operations & Execution": [
+        ]
+    }
+
+    # Add Admin-only pages
+    if user_role == "admin":
+        pages["Project Management"].append(st.Page("views/control.py", title="Project Control", icon="📁"))
+        pages["Financials & Underwriting"].append(st.Page("views/estimation.py", title="Cost Estimation", icon="🧮"))
+        pages["Financials & Underwriting"].append(st.Page("views/forecasting.py", title="Cash Flow Forecasting", icon="🔮"))
+        pages["Financials & Underwriting"].append(st.Page("views/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"))
+        
+        pages["Operations & Execution"] = [
             st.Page("views/engineering.py", title="Engineering Specs", icon="🏗️"),
             st.Page("views/quality.py", title="Quality Control", icon="✅"),
             st.Page("views/safety.py", title="Jobsite Safety", icon="🦺"),
-        ],
-        "Business & Governance": [
+        ]
+        
+        pages["Business & Governance"] = [
             st.Page("views/diligence.py", title="Due Diligence", icon="📑"),
             st.Page("views/marketing.py", title="Marketing Library", icon="📢"),
             st.Page("views/governance.py", title="Master Company Library", icon="🏢"),
             st.Page("views/user_management.py", title="User Management", icon="🔐"),
             st.Page("views/settings.py", title="Account Settings", icon="⚙️"),
         ]
-    })
-    
+
+    pg = st.navigation(pages)
     pg.run()

@@ -2,3 +2,4 @@ credentials.json
 *.db
 backups/
 __pycache__/
+.streamlit/secrets.toml
