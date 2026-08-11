@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from pdf_ops import generate_proforma_pdf
 
 st.title("Dynamic Scenario Modeling & Proforma 📈")
 st.markdown("Stress-test your build-to-rent underwriting with live variables. Adjust the parameters to instantly recalculate the capital stack and return profile.")
@@ -83,3 +84,23 @@ with col2:
     # Raw Data Table Export
     with st.expander("View Full Amortization & Raw Data"):
         st.dataframe(cf_df.style.format({"Projected NOI": "${:,.2f}"}), use_container_width=True)
+st.divider()
+    
+    # PDF Generation & Download
+    st.subheader("Export Deal Packet")
+    pdf_bytes = generate_proforma_pdf(
+        total_project_cost, 
+        required_equity, 
+        net_operating_income, 
+        yield_on_cost, 
+        cash_flows
+    )
+    
+    st.download_button(
+        label="📄 Download Proforma PDF",
+        data=pdf_bytes,
+        file_name="Wickboldt_Capital_Proforma.pdf",
+        mime="application/pdf",
+        type="primary",
+        use_container_width=True
+    )
