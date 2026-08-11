@@ -217,3 +217,38 @@ def complete_milestone(milestone_id, user_email):
     
     log_audit_action(user_email, "MILESTONE_COMPLETED", f"Completed milestone ID {milestone_id}")
     st.cache_data.clear()
+
+# ==========================================
+# 🎓 ENTERPRISE LMS & TRAINING
+# ==========================================
+
+def get_all_training_modules():
+    """Fetches all active training modules and SOPs."""
+    with get_read_connection() as conn:
+        query = text("SELECT id, title, category, content, created_at FROM training_modules ORDER BY category, title")
+        return pd.read_sql(query, conn)
+
+def add_training_module(title, category, content, admin_email):
+    """Allows admins to publish a new SOP or training module."""
+    with get_transaction() as conn:
+        query = text("INSERT INTO training_modules (title, category, content) VALUES (:title, :cat, :content)")
+        conn.execute(query, {"title": title, "cat": category, "content": content})
+    
+    log_audit_action(admin_email, "PUBLISHED_TRAINING", f"Published {category}: {title}")
+    st.cache_data.clear()
+
+def get_user_completed_modules(email):
+    """Returns a list of module IDs the user has completed."""
+    with get_read_connection() as conn:
+        query = text("SELECT module_id FROM user_training_progress WHERE user_email = :email")
+        result = conn.execute(query, {"email": email}).fetchall()
+        return [row[0] for row in result]
+
+def mark_module_completed(email, module_id, title):
+    """Logs that a user has successfully read and signed off on a module."""
+    with get_transaction() as conn:
+        query = text("INSERT INTO user_training_progress (user_email, module_id) VALUES (:email, :module_id)")
+        conn.execute(query, {"email": email, "module_id": module_id})
+        
+    log_audit_action(email, "COMPLETED_TRAINING", f"Completed training: {title}")
+    st.cache_data.clear()

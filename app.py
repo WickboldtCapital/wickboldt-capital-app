@@ -147,7 +147,7 @@ else:
     # Add Admin-only pages
     if user_role == "admin":
         pages["Project Management"].append(st.Page("views/control.py", title="Project Control", icon="📁"))
-        pages["Project Management"].append(st.Page("views/documents.py", title="Secure Document Library", icon="🔒")) # <-- NEW DOCUMENT LIBRARY ADDED HERE
+        pages["Project Management"].append(st.Page("views/documents.py", title="Secure Document Library", icon="🔒"))
         pages["Financials & Underwriting"].append(st.Page("views/estimation.py", title="Cost Estimation", icon="🧮"))
         pages["Financials & Underwriting"].append(st.Page("views/forecasting.py", title="Cash Flow Forecasting", icon="🔮"))
         pages["Financials & Underwriting"].append(st.Page("views/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"))
@@ -156,6 +156,7 @@ else:
             st.Page("views/engineering.py", title="Engineering Specs", icon="🏗️"),
             st.Page("views/quality.py", title="Quality Control", icon="✅"),
             st.Page("views/safety.py", title="Jobsite Safety", icon="🦺"),
+            st.Page("views/training.py", title="Training & SOPs", icon="📚"), # <-- NEW LMS ADDED HERE
         ]
         
         pages["Business & Governance"] = [
