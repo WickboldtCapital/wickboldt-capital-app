@@ -1,62 +1,85 @@
 import streamlit as st
 import pandas as pd
 
-if not st.session_state.get("active_project"):
-    st.warning("⚠️ Access Restricted: Please load a project from the Control tab.")
-    st.stop()
+st.title("Dynamic Scenario Modeling & Proforma 📈")
+st.markdown("Stress-test your build-to-rent underwriting with live variables. Adjust the parameters to instantly recalculate the capital stack and return profile.")
 
-# ==========================================
-# 🛡️ SANDBOXED EXECUTION BLOCK
-# ==========================================
-try:
-    st.header("📈 Financial Proforma & Underwriting")
-    st.markdown(f"**Active Development:** `{st.session_state['active_project']}`")
-    st.markdown("---")
+# --- LAYOUT SETUP ---
+col1, col2 = st.columns([1, 3], gap="large")
 
-    st.subheader("Development Assumptions")
-    col1, col2, col3 = st.columns(3)
-
-    # ⚡ NAMESPACING: Notice the key="prof_..." added to every single input
-    with col1:
-        unit_count = st.number_input("Total Units/Lots", value=3, min_value=1, key="prof_unit_count")
-        land_cost = st.number_input("Total Land Cost ($)", value=120000.0, step=10000.0, key="prof_land_cost")
-    with col2:
-        cost_per_unit = st.number_input("Construction Cost per Unit ($)", value=185000.0, step=5000.0, key="prof_cost_per_unit")
-        monthly_rent = st.number_input("Target Monthly Rent per Unit ($)", value=1850.0, step=50.0, key="prof_monthly_rent")
-    with col3:
-        exit_cap_rate = st.number_input("Exit Cap Rate (%)", value=6.5, step=0.25, key="prof_exit_cap")
-        # Equity target maintains the 30% baseline standard
-        equity_pct_input = st.slider("Target Equity Position (%)", min_value=0.0, max_value=100.0, value=30.0, step=5.0, key="prof_equity_pct")
-        equity_pct = equity_pct_input / 100.0
-
-    # --- FINANCIAL CALCULATIONS ---
-    total_construction = unit_count * cost_per_unit
-    total_project_cost = land_cost + total_construction
-    required_equity = total_project_cost * equity_pct
-    required_debt = total_project_cost - required_equity
+# --- INTERACTIVE ASSUMPTIONS (LEFT COLUMN) ---
+with col1:
+    st.header("Assumptions")
     
-    annual_gross_income = unit_count * monthly_rent * 12
-    noi = annual_gross_income * 0.65
-    stabilized_value = noi / (exit_cap_rate / 100)
-    projected_margin = stabilized_value - total_project_cost
+    st.subheader("Project Scope")
+    num_units = st.number_input("Total Units/Lots", min_value=1, max_value=200, value=24)
+    construction_cost_per_unit = st.number_input("Construction Cost per Unit", min_value=50000, max_value=500000, value=150000, step=5000)
+    
+    st.subheader("Revenue & Operations")
+    monthly_rent = st.number_input("Avg Monthly Rent per Unit", min_value=500, max_value=5000, value=1800, step=50)
+    opex_ratio = st.slider("Operating Expenses (%)", 10, 50, 35)
+    vacancy_rate = st.slider("Vacancy Rate (%)", 0, 20, 5)
+    
+    st.subheader("Financing")
+    equity_target = st.slider("Target Equity Position (%)", 0, 100, 25)
+    interest_rate = st.number_input("Debt Interest Rate (%)", 1.0, 15.0, 7.5, step=0.25)
 
-    # --- UI RENDERING ---
-    st.markdown("---")
-    st.subheader("Capital Stack & Valuation")
-    metric1, metric2, metric3, metric4 = st.columns(4)
-    metric1.metric("Total Project Cost", f"${total_project_cost:,.0f}")
-    metric2.metric(f"Required Equity ({equity_pct_input}%)", f"${required_equity:,.0f}")
-    metric3.metric("Debt Facility Required", f"${required_debt:,.0f}")
-    metric4.metric("Stabilized Valuation", f"${stabilized_value:,.0f}")
+# --- CALCULATIONS ---
+# Total costs including an estimated 15% for land and soft costs
+total_construction_cost = num_units * construction_cost_per_unit
+total_project_cost = total_construction_cost * 1.15  
 
-    st.markdown("---")
-    st.subheader("Operating Projections")
-    st.dataframe(pd.DataFrame({
-        "Metric": ["Annual Gross Revenue", "Net Operating Income (NOI)", "Projected Margin (Equity Creation)"],
-        "Value": [f"${annual_gross_income:,.0f}", f"${noi:,.0f}", f"${projected_margin:,.0f}"]
-    }), use_container_width=True, hide_index=True)
+required_equity = total_project_cost * (equity_target / 100)
+required_debt = total_project_cost - required_equity
 
-# 🛡️ ERROR TRAP: Catches any math or typo errors without crashing the main app
-except Exception as e:
-    st.error("🚨 An error occurred in the Proforma module. The rest of the app is still running safely.")
-    st.code(str(e))
+gross_annual_rent = num_units * monthly_rent * 12
+effective_gross_income = gross_annual_rent * (1 - (vacancy_rate / 100))
+net_operating_income = effective_gross_income * (1 - (opex_ratio / 100))
+
+yield_on_cost = (net_operating_income / total_project_cost) * 100 if total_project_cost > 0 else 0
+
+# --- LIVE METRICS & CHARTS (RIGHT COLUMN) ---
+with col2:
+    st.header("Deal Metrics")
+    
+    # Top Level Dashboard
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total Project Cost", f"${total_project_cost:,.0f}")
+    m2.metric("Required Equity", f"${required_equity:,.0f}")
+    m3.metric("Annual NOI", f"${net_operating_income:,.0f}")
+    m4.metric("Yield on Cost (Cap)", f"{yield_on_cost:.2f}%")
+    
+    st.divider()
+    
+    chart_col1, chart_col2 = st.columns(2)
+    
+    # Capital Stack Visual
+    with chart_col1:
+        st.subheader("Capital Stack Breakdown")
+        stack_data = pd.DataFrame({
+            "Source": ["Equity", "Debt"],
+            "Amount": [required_equity, required_debt]
+        })
+        # Plotting the capital stack
+        st.bar_chart(stack_data.set_index("Source"), color="#2b6cb0")
+        
+    # Cash Flow Projections (10 Year)
+    with chart_col2:
+        st.subheader("10-Year NOI Projection")
+        st.caption("Assuming 3% Annual Rent Growth")
+        years = list(range(1, 11))
+        
+        # Calculate compounded NOI for 10 years
+        cash_flows = [net_operating_income * ((1.03) ** (year - 1)) for year in years]
+        cf_df = pd.DataFrame({
+            "Year": years,
+            "Projected NOI": cash_flows
+        })
+        
+        st.line_chart(cf_df.set_index("Year"), color="#2f855a")
+        
+    st.divider()
+    
+    # Raw Data Table Export
+    with st.expander("View Full Amortization & Raw Data"):
+        st.dataframe(cf_df.style.format({"Projected NOI": "${:,.2f}"}), use_container_width=True)
