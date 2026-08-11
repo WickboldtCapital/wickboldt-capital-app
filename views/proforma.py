@@ -84,7 +84,8 @@ with col2:
     # Raw Data Table Export
     with st.expander("View Full Amortization & Raw Data"):
         st.dataframe(cf_df.style.format({"Projected NOI": "${:,.2f}"}), use_container_width=True)
-st.divider()
+        
+    st.divider()
     
     # PDF Generation & Download
     st.subheader("Export Deal Packet")

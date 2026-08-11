@@ -187,3 +187,33 @@ def save_library_state(data, user_email="System"):
         
     log_audit_action(user_email, "UPDATE_LIBRARY", "Modified the master company library")
     st.cache_data.clear() # Clear cache so the UI reflects the updated library
+
+# ==========================================
+# ⏱️ SCHEDULING & MILESTONES
+# ==========================================
+
+def get_project_milestones(project_name):
+    """Fetches all milestones for the active project."""
+    with get_read_connection() as conn:
+        query = text("SELECT id, task_name, is_complete, completed_by, completed_at FROM milestones WHERE project_name=:name ORDER BY id ASC")
+        return pd.read_sql(query, conn, params={"name": project_name})
+
+def add_milestone(project_name, task_name):
+    """Adds a new pending milestone to a project."""
+    with get_transaction() as conn:
+        query = text("INSERT INTO milestones (project_name, task_name) VALUES (:project_name, :task_name)")
+        conn.execute(query, {"project_name": project_name, "task_name": task_name})
+    st.cache_data.clear()
+
+def complete_milestone(milestone_id, user_email):
+    """Marks a milestone as complete and logs who did it."""
+    with get_transaction() as conn:
+        query = text("""
+            UPDATE milestones 
+            SET is_complete = TRUE, completed_by = :email, completed_at = NOW() 
+            WHERE id = :id
+        """)
+        conn.execute(query, {"email": user_email, "id": milestone_id})
+    
+    log_audit_action(user_email, "MILESTONE_COMPLETED", f"Completed milestone ID {milestone_id}")
+    st.cache_data.clear()
