@@ -60,7 +60,8 @@ if user_role == "admin":
         else:
             for _, row in modules_df.iterrows():
                 with st.expander(f"Edit: {row['title']} (Order: {row['sort_order']})"):
-                    with st.form(f"edit_form_{row['id']}")):
+                    # FIXED SYNTAX ERROR HERE
+                    with st.form(f"edit_form_{row['id']}"):
                         e_col1, e_col2 = st.columns(2)
                         with e_col1:
                             e_title = st.text_input("Title", value=row['title'])
