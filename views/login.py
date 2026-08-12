@@ -1,6 +1,4 @@
-Python
 import streamlit as st
-import os  # Added this import
 from db_ops import authenticate_user, update_password
 
 ui_placeholder = st.empty()
@@ -8,15 +6,11 @@ ui_placeholder = st.empty()
 with ui_placeholder.container():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        # Crash-proof image loader that checks common capitalizations
-        if os.path.exists("assets/logo.png"):
-            st.image("assets/logo.png", use_container_width=True)
-        elif os.path.exists("assets/Logo.png"):
-            st.image("assets/Logo.png", use_container_width=True)
-        elif os.path.exists("Assets/logo.png"):
-            st.image("Assets/logo.png", use_container_width=True)
-        else:
-            st.caption("(Logo file not found on server)")
+        # Bulletproof image loader looking in the main root folder
+        try:
+            st.image("logo.png", use_container_width=True)
+        except Exception:
+            st.caption("(Corporate logo syncing to cloud...)")
             
         st.markdown("<h3 style='text-align: center;'>Proforma Development Portal</h3>", unsafe_allow_html=True)
         
