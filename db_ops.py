@@ -186,39 +186,39 @@ def complete_milestone(milestone_id, user_email):
 # ==========================================
 
 def get_all_training_modules():
-    """Fetches all training modules, including file data."""
+    """Fetches all training modules, including file data and descriptions."""
     with get_read_connection() as conn:
         query = text("""
-            SELECT id, title, category, chapter, content, video_url, sort_order, attached_file_name, attached_file_data, created_at 
+            SELECT id, title, category, chapter, content, video_url, sort_order, attached_file_name, attached_file_data, attached_file_desc, created_at 
             FROM training_modules 
             ORDER BY category ASC, chapter ASC, sort_order ASC, title ASC
         """)
         return pd.read_sql(query, conn)
 
-def add_training_module(title, category, chapter, content, video_url, sort_order, fname, fdata, admin_email):
+def add_training_module(title, category, chapter, content, video_url, sort_order, fname, fdata, fdesc, admin_email):
     with get_transaction() as conn:
         query = text("""
-            INSERT INTO training_modules (title, category, chapter, content, video_url, sort_order, attached_file_name, attached_file_data) 
-            VALUES (:title, :cat, :chapter, :content, :video, :sort_order, :fname, :fdata)
+            INSERT INTO training_modules (title, category, chapter, content, video_url, sort_order, attached_file_name, attached_file_data, attached_file_desc) 
+            VALUES (:title, :cat, :chapter, :content, :video, :sort_order, :fname, :fdata, :fdesc)
         """)
         conn.execute(query, {
             "title": title, "cat": category, "chapter": chapter, "content": content, 
-            "video": video_url, "sort_order": sort_order, "fname": fname, "fdata": fdata
+            "video": video_url, "sort_order": sort_order, "fname": fname, "fdata": fdata, "fdesc": fdesc
         })
     log_audit_action(admin_email, "PUBLISHED_TRAINING", f"Published {category}: {title}")
     st.cache_data.clear()
 
-def update_training_module(module_id, title, category, chapter, content, video_url, sort_order, fname, fdata, admin_email):
+def update_training_module(module_id, title, category, chapter, content, video_url, sort_order, fname, fdata, fdesc, admin_email):
     with get_transaction() as conn:
         query = text("""
             UPDATE training_modules 
             SET title=:title, category=:cat, chapter=:chapter, content=:content, 
-                video_url=:video, sort_order=:sort_order, attached_file_name=:fname, attached_file_data=:fdata 
+                video_url=:video, sort_order=:sort_order, attached_file_name=:fname, attached_file_data=:fdata, attached_file_desc=:fdesc 
             WHERE id=:id
         """)
         conn.execute(query, {
             "title": title, "cat": category, "chapter": chapter, "content": content, 
-            "video": video_url, "sort_order": sort_order, "fname": fname, "fdata": fdata, "id": int(module_id)
+            "video": video_url, "sort_order": sort_order, "fname": fname, "fdata": fdata, "fdesc": fdesc, "id": int(module_id)
         })
     log_audit_action(admin_email, "UPDATED_TRAINING", f"Revised {category}: {title}")
     st.cache_data.clear()

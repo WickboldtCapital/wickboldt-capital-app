@@ -51,7 +51,11 @@ if user_role == "admin":
             t_content = st_quill(placeholder="Type your rich text here...", html=True, key="new_quill")
             
             st.markdown("**File Attachment**")
-            t_file = st.file_uploader("Upload a PDF, document, or spreadsheet", key="new_file")
+            file_col1, file_col2 = st.columns(2)
+            with file_col1:
+                t_file = st.file_uploader("Upload a PDF, document, or spreadsheet", key="new_file")
+            with file_col2:
+                t_fdesc = st.text_input("Instructions / Description for this file (Optional)", key="new_fdesc")
             
             if st.button("Publish Module", type="primary", key="new_pub_btn"):
                 chapter_val = t_chapter if t_chapter else "General Overview"
@@ -63,7 +67,7 @@ if user_role == "admin":
                     t_fdata = base64.b64encode(t_file.read()).decode('utf-8')
                 
                 if t_title and t_content:
-                    add_training_module(t_title, t_category, chapter_val, t_content, t_video, t_sort, t_fname, t_fdata, user_email)
+                    add_training_module(t_title, t_category, chapter_val, t_content, t_video, t_sort, t_fname, t_fdata, t_fdesc, user_email)
                     st.success("Published successfully!")
                     st.rerun()
                 else:
@@ -100,15 +104,20 @@ if user_role == "admin":
                     st.markdown("**Module Content (Rich Text Editor)**")
                     e_content = st_quill(value=row['content'], html=True, key=f"quill_{row['id']}")
                     
-                    st.markdown("**File Attachment**")
+                    st.markdown("**File Attachment & Instructions**")
                     current_fname = row.get('attached_file_name')
+                    current_fdesc = row.get('attached_file_desc')
                     remove_file = False
                     
                     if pd.notna(current_fname) and current_fname:
                         st.info(f"📎 Current Attachment: {current_fname}")
-                        remove_file = st.checkbox("Remove current attachment", key=f"rm_file_{row['id']}")
+                        remove_file = st.checkbox("Remove current attachment entirely", key=f"rm_file_{row['id']}")
                     
-                    e_file = st.file_uploader("Upload new file (replaces current)", key=f"file_{row['id']}")
+                    file_col1, file_col2 = st.columns(2)
+                    with file_col1:
+                        e_file = st.file_uploader("Upload new file (replaces current)", key=f"file_{row['id']}")
+                    with file_col2:
+                        e_fdesc = st.text_input("Instructions / Description for this file", value=current_fdesc if pd.notna(current_fdesc) else "", key=f"fdesc_{row['id']}")
                     
                     btn_col1, btn_col2 = st.columns([1, 1])
                     with btn_col1:
@@ -116,6 +125,7 @@ if user_role == "admin":
                             # Handle file logic
                             e_fname = current_fname
                             e_fdata = row.get('attached_file_data')
+                            final_fdesc = e_fdesc
                             
                             if e_file is not None:
                                 e_fname = e_file.name
@@ -123,8 +133,9 @@ if user_role == "admin":
                             elif remove_file:
                                 e_fname = None
                                 e_fdata = None
+                                final_fdesc = None
                                 
-                            update_training_module(row['id'], e_title, e_category, e_chapter, e_content, e_video, e_sort, e_fname, e_fdata, user_email)
+                            update_training_module(row['id'], e_title, e_category, e_chapter, e_content, e_video, e_sort, e_fname, e_fdata, final_fdesc, user_email)
                             st.success("Module updated!")
                             st.rerun()
                     with btn_col2:
@@ -179,9 +190,13 @@ with tab_library:
                         # Render File Download Button if a file is attached
                         if pd.notna(row.get('attached_file_name')) and row['attached_file_name'] and pd.notna(row.get('attached_file_data')):
                             try:
+                                # Show the description if the admin provided one
+                                if pd.notna(row.get('attached_file_desc')) and row['attached_file_desc'].strip() != "":
+                                    st.write(f"**Instructions:** {row['attached_file_desc']}")
+                                
                                 file_bytes = base64.b64decode(row['attached_file_data'])
                                 st.download_button(
-                                    label=f"📄 Download Attached File: {row['attached_file_name']}",
+                                    label=f"📄 Download: {row['attached_file_name']}",
                                     data=file_bytes,
                                     file_name=row['attached_file_name'],
                                     key=f"dl_{row['id']}"
