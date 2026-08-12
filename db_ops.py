@@ -71,7 +71,6 @@ def add_new_user(email, password, role, admin_email="System"):
         with get_transaction() as conn:
             query = text("INSERT INTO users (email, password_hash, role) VALUES (:email, :pw, :role)")
             conn.execute(query, {"email": clean_email, "pw": hash_password(password), "role": role})
-        
         log_audit_action(admin_email, "ADD_USER", f"Added new user: {clean_email} with role {role}")
         st.cache_data.clear() 
         return True, "Success"
@@ -84,18 +83,15 @@ def update_user_role(email, new_role, admin_email="System"):
     with get_transaction() as conn:
         query = text("UPDATE users SET role = :role WHERE email = :email")
         conn.execute(query, {"role": new_role, "email": email})
-    
     log_audit_action(admin_email, "UPDATE_ROLE", f"Changed role for {email} to {new_role}")
     st.cache_data.clear() 
 
 def delete_user(email, admin_email="System"):
     if email.lower() == "steve.wickboldt.jr@gmail.com":
         return False, "Cannot delete the master administrator account."
-        
     with get_transaction() as conn:
         query = text("DELETE FROM users WHERE email = :email")
         conn.execute(query, {"email": email})
-        
     log_audit_action(admin_email, "DELETE_USER", f"Deleted user: {email}")
     st.cache_data.clear() 
     return True, "User deleted successfully."
@@ -114,7 +110,6 @@ def create_project(name, phase, notes, user_email="System"):
         with get_transaction() as conn:
             query = text("INSERT INTO projects (project_name, phase, notes) VALUES (:name, :phase, :notes)")
             conn.execute(query, {"name": name, "phase": phase, "notes": notes})
-        
         log_audit_action(user_email, "CREATE_PROJECT", f"Created project: {name}")
         st.cache_data.clear() 
         return True, "Success"
@@ -129,15 +124,9 @@ def create_project(name, phase, notes, user_email="System"):
 
 def init_library_db():
     with get_transaction() as conn:
-        column_check = conn.execute(text("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name='projects' AND column_name='project_data'
-        """)).fetchone()
-        
+        column_check = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='projects' AND column_name='project_data'")).fetchone()
         if not column_check:
             conn.execute(text("ALTER TABLE projects ADD COLUMN project_data TEXT"))
-            
         row_check = conn.execute(text("SELECT 1 FROM projects WHERE project_name='__MASTER_LIBRARY__'")).fetchone()
         if not row_check:
             conn.execute(text("INSERT INTO projects (project_name, project_data) VALUES ('__MASTER_LIBRARY__', '{}')"))
@@ -178,67 +167,68 @@ def complete_milestone(milestone_id, user_email):
     with get_transaction() as conn:
         query = text("UPDATE milestones SET is_complete = TRUE, completed_by = :email, completed_at = NOW() WHERE id = :id")
         conn.execute(query, {"email": user_email, "id": milestone_id})
-    log_audit_action(user_email, "MILESTONE_COMPLETED", f"Completed milestone ID {milestone_id}")
     st.cache_data.clear()
 
+
 # ==========================================
-# 🎓 ENTERPRISE LMS & TRAINING
+# 🎓 ENTERPRISE LMS (RELATIONAL)
 # ==========================================
 
-def get_all_training_modules():
-    """Fetches all training modules, including file data and descriptions."""
+def get_lms_categories():
     with get_read_connection() as conn:
-        query = text("""
-            SELECT id, title, category, chapter, content, video_url, sort_order, attached_file_name, attached_file_data, attached_file_desc, created_at 
-            FROM training_modules 
-            ORDER BY category ASC, chapter ASC, sort_order ASC, title ASC
-        """)
-        return pd.read_sql(query, conn)
+        return pd.read_sql(text("SELECT * FROM lms_categories ORDER BY sort_order ASC, title ASC"), conn)
 
-def add_training_module(title, category, chapter, content, video_url, sort_order, fname, fdata, fdesc, admin_email):
+def add_lms_category(title, description, sort_order):
     with get_transaction() as conn:
-        query = text("""
-            INSERT INTO training_modules (title, category, chapter, content, video_url, sort_order, attached_file_name, attached_file_data, attached_file_desc) 
-            VALUES (:title, :cat, :chapter, :content, :video, :sort_order, :fname, :fdata, :fdesc)
-        """)
-        conn.execute(query, {
-            "title": title, "cat": category, "chapter": chapter, "content": content, 
-            "video": video_url, "sort_order": sort_order, "fname": fname, "fdata": fdata, "fdesc": fdesc
-        })
-    log_audit_action(admin_email, "PUBLISHED_TRAINING", f"Published {category}: {title}")
-    st.cache_data.clear()
+        conn.execute(text("INSERT INTO lms_categories (title, description, sort_order) VALUES (:t, :d, :s)"), {"t": title, "d": description, "s": sort_order})
 
-def update_training_module(module_id, title, category, chapter, content, video_url, sort_order, fname, fdata, fdesc, admin_email):
+def delete_lms_category(cat_id):
     with get_transaction() as conn:
-        query = text("""
-            UPDATE training_modules 
-            SET title=:title, category=:cat, chapter=:chapter, content=:content, 
-                video_url=:video, sort_order=:sort_order, attached_file_name=:fname, attached_file_data=:fdata, attached_file_desc=:fdesc 
-            WHERE id=:id
-        """)
-        conn.execute(query, {
-            "title": title, "cat": category, "chapter": chapter, "content": content, 
-            "video": video_url, "sort_order": sort_order, "fname": fname, "fdata": fdata, "fdesc": fdesc, "id": int(module_id)
-        })
-    log_audit_action(admin_email, "UPDATED_TRAINING", f"Revised {category}: {title}")
-    st.cache_data.clear()
+        conn.execute(text("DELETE FROM lms_categories WHERE id=:id"), {"id": cat_id})
 
-def delete_training_module(module_id, admin_email):
+def get_lms_chapters():
+    with get_read_connection() as conn:
+        return pd.read_sql(text("""
+            SELECT ch.*, c.title as category_title 
+            FROM lms_chapters ch 
+            JOIN lms_categories c ON ch.category_id = c.id 
+            ORDER BY c.sort_order ASC, ch.sort_order ASC, ch.title ASC
+        """), conn)
+
+def add_lms_chapter(cat_id, title, description, sort_order):
     with get_transaction() as conn:
-        query = text("DELETE FROM training_modules WHERE id=:id")
-        conn.execute(query, {"id": int(module_id)})
-    log_audit_action(admin_email, "DELETED_TRAINING", f"Deleted module ID {module_id}")
-    st.cache_data.clear()
+        conn.execute(text("INSERT INTO lms_chapters (category_id, title, description, sort_order) VALUES (:c, :t, :d, :s)"), {"c": cat_id, "t": title, "d": description, "s": sort_order})
+
+def delete_lms_chapter(chap_id):
+    with get_transaction() as conn:
+        conn.execute(text("DELETE FROM lms_chapters WHERE id=:id"), {"id": chap_id})
+
+def get_lms_modules():
+    with get_read_connection() as conn:
+        return pd.read_sql(text("""
+            SELECT m.*, ch.title as chapter_title, c.id as category_id, c.title as category_title 
+            FROM lms_modules m 
+            JOIN lms_chapters ch ON m.chapter_id = ch.id 
+            JOIN lms_categories c ON ch.category_id = c.id 
+            ORDER BY c.sort_order ASC, ch.sort_order ASC, m.sort_order ASC, m.title ASC
+        """), conn)
+
+def add_lms_module(chap_id, title, desc, content, video, sort, fname, fdata, fdesc):
+    with get_transaction() as conn:
+        conn.execute(text("""
+            INSERT INTO lms_modules (chapter_id, title, description, content, video_url, sort_order, attached_file_name, attached_file_data, attached_file_desc) 
+            VALUES (:c, :t, :d, :cnt, :v, :s, :fn, :fd, :fdesc)
+        """), {"c": chap_id, "t": title, "d": desc, "cnt": content, "v": video, "s": sort, "fn": fname, "fd": fdata, "fdesc": fdesc})
+
+def delete_lms_module(mod_id):
+    with get_transaction() as conn:
+        conn.execute(text("DELETE FROM lms_modules WHERE id=:id"), {"id": mod_id})
 
 def get_user_completed_modules(email):
     with get_read_connection() as conn:
-        query = text("SELECT module_id FROM user_training_progress WHERE user_email = :email")
-        result = conn.execute(query, {"email": email}).fetchall()
-        return [row[0] for row in result]
+        res = conn.execute(text("SELECT module_id FROM lms_user_progress WHERE user_email = :e"), {"e": email}).fetchall()
+        return [r[0] for r in res]
 
-def mark_module_completed(email, module_id, title):
+def mark_module_completed(email, module_id):
     with get_transaction() as conn:
-        query = text("INSERT INTO user_training_progress (user_email, module_id) VALUES (:email, :module_id)")
-        conn.execute(query, {"email": email, "module_id": module_id})
-    log_audit_action(email, "COMPLETED_TRAINING", f"Completed training: {title}")
-    st.cache_data.clear()
+        conn.execute(text("INSERT INTO lms_user_progress (user_email, module_id) VALUES (:e, :m)"), {"e": email, "m": module_id})
