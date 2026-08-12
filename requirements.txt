@@ -4,3 +4,4 @@ plotly
 sqlalchemy
 psycopg2-binary
 fpdf==1.7.2
+streamlit-quill==0.1.0
