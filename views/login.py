@@ -1,5 +1,4 @@
 import streamlit as st
-from core_backend import get_logo_html
 # We import our clean functions instead of writing SQL here
 from db_ops import authenticate_user, update_password
 
@@ -8,7 +7,8 @@ ui_placeholder = st.empty()
 with ui_placeholder.container():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown(get_logo_html(), unsafe_allow_html=True)
+        # Use Streamlit's native image handler instead of HTML
+        st.image("assets/logo.png", use_container_width=True)
         st.markdown("<h3 style='text-align: center;'>Proforma Development Portal</h3>", unsafe_allow_html=True)
         
         with st.form("login_form"):
