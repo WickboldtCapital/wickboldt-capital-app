@@ -3,3 +3,6 @@ credentials.json
 backups/
 __pycache__/
 .streamlit/secrets.toml
+.steamlit/
+.streamlit/
+.streamlit/
