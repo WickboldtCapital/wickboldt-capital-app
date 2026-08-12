@@ -20,11 +20,12 @@ with ui_placeholder.container():
             submit = st.form_submit_button("Sign In", use_container_width=True)
             
         if submit:
-            # Look how clean this is now!
             role = authenticate_user(email, password)
             
             if role:
-                st.session_state.update({"logged_in": True, "email": email.lower().strip(), "role": role})
+                # This scrubs out any hidden spaces and forces it to lowercase
+                clean_role = str(role).lower().strip()
+                st.session_state.update({"logged_in": True, "email": email.lower().strip(), "role": clean_role})
                 ui_placeholder.empty()
                 st.rerun()
             else:
