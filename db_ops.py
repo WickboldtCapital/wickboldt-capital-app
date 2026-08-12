@@ -186,40 +186,37 @@ def complete_milestone(milestone_id, user_email):
 # ==========================================
 
 def get_all_training_modules():
-    """Fetches all training modules, sorted by category and then by custom sort_order."""
+    """Fetches all training modules, sorted by category, then chapter, then custom sort_order."""
     with get_read_connection() as conn:
-        # Added sort_order to the query and ordering logic
         query = text("""
-            SELECT id, title, category, content, video_url, sort_order, created_at 
+            SELECT id, title, category, chapter, content, video_url, sort_order, created_at 
             FROM training_modules 
-            ORDER BY category ASC, sort_order ASC, title ASC
+            ORDER BY category ASC, chapter ASC, sort_order ASC, title ASC
         """)
         return pd.read_sql(query, conn)
 
-def add_training_module(title, category, content, video_url, sort_order, admin_email):
+def add_training_module(title, category, chapter, content, video_url, sort_order, admin_email):
     with get_transaction() as conn:
         query = text("""
-            INSERT INTO training_modules (title, category, content, video_url, sort_order) 
-            VALUES (:title, :cat, :content, :video, :sort_order)
+            INSERT INTO training_modules (title, category, chapter, content, video_url, sort_order) 
+            VALUES (:title, :cat, :chapter, :content, :video, :sort_order)
         """)
-        conn.execute(query, {"title": title, "cat": category, "content": content, "video": video_url, "sort_order": sort_order})
+        conn.execute(query, {"title": title, "cat": category, "chapter": chapter, "content": content, "video": video_url, "sort_order": sort_order})
     log_audit_action(admin_email, "PUBLISHED_TRAINING", f"Published {category}: {title}")
     st.cache_data.clear()
 
-def update_training_module(module_id, title, category, content, video_url, sort_order, admin_email):
-    """Allows admins to revise and reorder existing modules."""
+def update_training_module(module_id, title, category, chapter, content, video_url, sort_order, admin_email):
     with get_transaction() as conn:
         query = text("""
             UPDATE training_modules 
-            SET title=:title, category=:cat, content=:content, video_url=:video, sort_order=:sort_order 
+            SET title=:title, category=:cat, chapter=:chapter, content=:content, video_url=:video, sort_order=:sort_order 
             WHERE id=:id
         """)
-        conn.execute(query, {"title": title, "cat": category, "content": content, "video": video_url, "sort_order": sort_order, "id": int(module_id)})
+        conn.execute(query, {"title": title, "cat": category, "chapter": chapter, "content": content, "video": video_url, "sort_order": sort_order, "id": int(module_id)})
     log_audit_action(admin_email, "UPDATED_TRAINING", f"Revised {category}: {title}")
     st.cache_data.clear()
 
 def delete_training_module(module_id, admin_email):
-    """Allows admins to permanently remove a training module."""
     with get_transaction() as conn:
         query = text("DELETE FROM training_modules WHERE id=:id")
         conn.execute(query, {"id": int(module_id)})
