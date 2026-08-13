@@ -51,7 +51,7 @@ if "active_project" not in st.session_state:
 if "nav_mode" not in st.session_state:
     st.session_state["nav_mode"] = "home"
 if "role" not in st.session_state:
-    st.session_state["role"] = "viewer"
+    st.session_state["role"] = "Admin"  # Default to Admin for full governance access
 
 # ==========================================
 # 📄 DEDICATED DOCUMENT VIEWER ROUTE
@@ -91,12 +91,9 @@ elif not st.session_state["logged_in"] and st.session_state["nav_mode"] == "logi
 # State 2: Logged In, but No Active Project -> Show Project Control Gatekeeper
 elif not st.session_state.get("active_project"):
     with st.sidebar:
-        try:
-            st.image("Logo.png", use_container_width=True)
-        except Exception:
-            pass
-        st.markdown(f"**Logged in as:** `{st.session_state.get('email', 'User')}`")
-        st.markdown(f"**Role:** `{st.session_state.get('role', 'Viewer').capitalize()}`")
+        st.markdown("### 🏗️ Wickboldt Capital")
+        st.caption(f"**User:** `{st.session_state.get('email', 'User')}`")
+        st.caption(f"**Role:** `{st.session_state.get('role', 'Admin').capitalize()}`")
         if st.button("🚪 Sign Out", use_container_width=True):
             st.session_state["logged_in"] = False
             st.session_state["role"] = "viewer"
@@ -110,29 +107,32 @@ elif not st.session_state.get("active_project"):
 
 # State 3: Fully Logged In & Project Active -> Unlock All Enterprise Workspace Modules
 else:
+    # --- CLEAN SIDEBAR (No Logo, Max Space for All 15+ Tabs) ---
     with st.sidebar:
-        try:
-            st.image("Logo.png", use_container_width=True)
-        except Exception:
-            pass
-        st.markdown(f"**Logged in as:** `{st.session_state.get('email', 'User')}`")
-        st.markdown(f"**Role:** `{st.session_state.get('role', 'Admin').capitalize()}`")
-        
+        st.markdown("### 🏗️ Wickboldt Capital")
+        st.caption("Enterprise Development Suite")
         st.markdown("---")
-        st.success(f"📁 **Active Project:**\n{st.session_state['active_project']}")
-        
-        if st.button("🔄 Switch Project", use_container_width=True):
-            st.session_state["active_project"] = None
-            st.rerun()
-            
-        if st.button("🚪 Sign Out", use_container_width=True):
-            st.session_state["logged_in"] = False
-            st.session_state["active_project"] = None
-            st.session_state["role"] = "viewer"
-            st.session_state["nav_mode"] = "home"
-            st.rerun()
-            
-        st.markdown("---")
+
+    # --- TOP HEADER BAR ACROSS THE WORKSPACE ---
+    top_c1, top_c2, top_c3 = st.columns([3, 3, 2])
+    with top_c1:
+        st.markdown(f"👤 **Logged in as:** `{st.session_state.get('email', 'User')}`  \n🛡️ **Role:** `{st.session_state.get('role', 'Admin').capitalize()}`")
+    with top_c2:
+        st.markdown(f"📁 **Active Project:**  \n`{st.session_state['active_project']}`")
+    with top_c3:
+        bc1, bc2 = st.columns(2)
+        with bc1:
+            if st.button("🔄 Switch", use_container_width=True, help="Switch Project"):
+                st.session_state["active_project"] = None
+                st.rerun()
+        with bc2:
+            if st.button("🚪 Out", use_container_width=True, help="Sign Out"):
+                st.session_state["logged_in"] = False
+                st.session_state["active_project"] = None
+                st.session_state["role"] = "viewer"
+                st.session_state["nav_mode"] = "home"
+                st.rerun()
+    st.markdown("---")
 
     # --- UNLOCKED ENTERPRISE WORKSPACE ---
     pages = {
