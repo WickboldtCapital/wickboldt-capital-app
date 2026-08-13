@@ -50,10 +50,14 @@ if "active_project" not in st.session_state:
     st.session_state["active_project"] = None
 if "nav_mode" not in st.session_state:
     st.session_state["nav_mode"] = "home"
-if "role" not in st.session_state:
-    st.session_state["role"] = "Admin"
 if "email" not in st.session_state:
     st.session_state["email"] = "steve.wickboldt.jr@gmail.com"
+
+# OVERRIDE: Force master email to always be Admin
+if st.session_state.get("email") == "steve.wickboldt.jr@gmail.com":
+    st.session_state["role"] = "Admin"
+elif "role" not in st.session_state:
+    st.session_state["role"] = "Admin"
 
 # ==========================================
 # 📄 DEDICATED DOCUMENT VIEWER ROUTE
