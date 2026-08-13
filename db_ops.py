@@ -147,3 +147,21 @@ def get_user_progress(email, table_name, column_name):
     with get_read_connection() as conn: return [r[0] for r in conn.execute(text(f"SELECT {column_name} FROM {table_name} WHERE user_email = :e"), {"e": email}).fetchall()]
 def mark_progress(email, table_name, column_name, record_id):
     with get_transaction() as conn: conn.execute(text(f"INSERT INTO {table_name} (user_email, {column_name}) VALUES (:e, :id)"), {"e": email, "id": record_id})
+def delete_project(project_name, user_email="System"):
+    """Permanently deletes a project and its associated milestones."""
+    if project_name == "__MASTER_LIBRARY__": 
+        return False, "Cannot delete master library."
+    
+    try:
+        from sqlalchemy import text
+        with get_transaction() as conn:
+            # 1. Delete associated milestones first (prevents database crashes from orphaned data)
+            conn.execute(text("DELETE FROM milestones WHERE project_name = :name"), {"name": project_name})
+            # 2. Delete the actual project
+            conn.execute(text("DELETE FROM projects WHERE project_name = :name"), {"name": project_name})
+            
+        log_audit_action(user_email, "DELETE_PROJECT", f"Deleted project: {project_name}")
+        st.cache_data.clear()
+        return True, "Success"
+    except Exception as e:
+        return False, str(e)    
