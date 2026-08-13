@@ -75,7 +75,7 @@ if "view_doc" in st.query_params:
 
 # State 0: Not Logged In & In Home Mode -> Show Public Front Page
 if not st.session_state["logged_in"] and st.session_state["nav_mode"] == "home":
-    pg = st.navigation([st.Page("views/frontpage.py", title="Home", icon="🏠")], position="hidden")
+    pg = st.navigation([st.Page("pages/frontpage.py", title="Home", icon="🏠")], position="hidden")
     pg.run()
 
 # State 1: Not Logged In & In Login Mode -> Show Login Screen
@@ -85,7 +85,7 @@ elif not st.session_state["logged_in"] and st.session_state["nav_mode"] == "logi
             st.session_state["nav_mode"] = "home"
             st.rerun()
             
-    pg = st.navigation([st.Page("views/login.py", title="Sign In", icon="🔒")], position="hidden")
+    pg = st.navigation([st.Page("pages/login.py", title="Sign In", icon="🔒")], position="hidden")
     pg.run()
 
 # State 2: Logged In, but No Active Project -> Show Project Control Gatekeeper
@@ -105,8 +105,7 @@ elif not st.session_state.get("active_project"):
         st.markdown("---")
         st.warning("⚠️ No active project loaded. Select or create one below to unlock the workspace.")
         
-    # Render ONLY control.py as the gatekeeper
-    pg = st.navigation([st.Page("views/control.py", title="Project Control", icon="📁")])
+    pg = st.navigation([st.Page("pages/control.py", title="Project Control", icon="📁")])
     pg.run()
 
 # State 3: Fully Logged In & Project Active -> Unlock All Enterprise Workspace Modules
@@ -122,7 +121,6 @@ else:
         st.markdown("---")
         st.success(f"📁 **Active Project:**\n{st.session_state['active_project']}")
         
-        # Clean Switch Project Button (Clears state and drops back to gatekeeper)
         if st.button("🔄 Switch Project", use_container_width=True):
             st.session_state["active_project"] = None
             st.rerun()
@@ -136,31 +134,31 @@ else:
             
         st.markdown("---")
 
-    # --- UNLOCKED ENTERPRISE WORKSPACE (Control.py excluded from here) ---
+    # --- UNLOCKED ENTERPRISE WORKSPACE ---
     pages = {
         "Project Management": [
-            st.Page("views/dashboard.py", title="Executive Dashboard", icon="📊", default=True),
-            st.Page("views/scheduling.py", title="Scheduling & Milestones", icon="🗓️"),
+            st.Page("pages/dashboard.py", title="Executive Dashboard", icon="📊", default=True),
+            st.Page("pages/scheduling.py", title="Scheduling & Milestones", icon="🗓️"),
         ],
         "Financials & Underwriting": [
-            st.Page("views/proforma.py", title="Proforma & Underwriting", icon="📈"),
-            st.Page("views/estimation.py", title="Cost Estimation", icon="🧮"),
-            st.Page("views/forecasting.py", title="Cash Flow Forecasting", icon="🔮"),
-            st.Page("views/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"),
+            st.Page("pages/proforma.py", title="Proforma & Underwriting", icon="📈"),
+            st.Page("pages/estimation.py", title="Cost Estimation", icon="🧮"),
+            st.Page("pages/forecasting.py", title="Cash Flow Forecasting", icon="🔮"),
+            st.Page("pages/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"),
         ],
         "Operations & Execution": [
-            st.Page("views/engineering.py", title="Engineering Specs", icon="🏗️"),
-            st.Page("views/quality.py", title="Quality Control", icon="✅"),
-            st.Page("views/safety.py", title="Jobsite Safety", icon="🦺"),
-            st.Page("views/training.py", title="Training & SOPs", icon="📚"), 
+            st.Page("pages/engineering.py", title="Engineering Specs", icon="🏗️"),
+            st.Page("pages/quality.py", title="Quality Control", icon="✅"),
+            st.Page("pages/safety.py", title="Jobsite Safety", icon="🦺"),
+            st.Page("pages/training.py", title="Training & SOPs", icon="📚"), 
         ],
         "Business & Governance": [
-            st.Page("views/documents.py", title="Secure Document Library", icon="🔒"),
-            st.Page("views/diligence.py", title="Due Diligence", icon="📑"),
-            st.Page("views/marketing.py", title="Marketing Library", icon="📢"),
-            st.Page("views/governance.py", title="Master Company Library", icon="🏢"),
-            st.Page("views/user_management.py", title="User Management", icon="🔐"),
-            st.Page("views/settings.py", title="Account Settings", icon="⚙️"),
+            st.Page("pages/documents.py", title="Secure Document Library", icon="🔒"),
+            st.Page("pages/diligence.py", title="Due Diligence", icon="📑"),
+            st.Page("pages/marketing.py", title="Marketing Library", icon="📢"),
+            st.Page("pages/governance.py", title="Master Company Library", icon="🏢"),
+            st.Page("pages/user_management.py", title="User Management", icon="🔐"),
+            st.Page("pages/settings.py", title="Account Settings", icon="⚙️"),
         ]
     }
 
