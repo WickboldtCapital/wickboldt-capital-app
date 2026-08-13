@@ -109,7 +109,7 @@ elif not st.session_state.get("active_project"):
 
 # State 3: Fully Logged In & Project Active -> Unlock All Enterprise Workspace Modules
 else:
-    # --- ENTERPRISE SIDEBAR (User info, Active Project & Quick Controls at Top) ---
+    # --- ENTERPRISE SIDEBAR (Admin Controls & Navigation) ---
     with st.sidebar:
         st.markdown("### 🏗️ Wickboldt Capital")
         st.markdown(f"👤 `{st.session_state.get('email', 'steve.wickboldt.jr@gmail.com')}`")
@@ -130,10 +130,9 @@ else:
                 st.session_state["nav_mode"] = "home"
                 st.rerun()
         st.markdown("---")
-        st.markdown("### 🧭 Workspace Modules")
 
     # --- UNLOCKED ENTERPRISE WORKSPACE NAVIGATION ---
-    pages = {
+    workspace_pages = {
         "Project Management": [
             st.Page("pages/dashboard.py", title="Executive Dashboard", icon="📊", default=True),
             st.Page("pages/scheduling.py", title="Scheduling & Milestones", icon="🗓️"),
@@ -160,8 +159,5 @@ else:
         ]
     }
 
-    try:
-        pg = st.navigation(pages)
-        pg.run()
-    except Exception as nav_err:
-        st.error(f"Navigation routing error: {nav_err}")
+    pg = st.navigation(workspace_pages)
+    pg.run()
