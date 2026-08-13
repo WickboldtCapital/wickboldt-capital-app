@@ -1,0 +1,3 @@
+[33mb06e2f1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Migrate views to pages folder and fix switch_page navigation routing
+[33m54e7457[m Migrate views directory to pages directory for native st.switch_page support
+[33me4d090c[m Force remove switch_page from control.py
