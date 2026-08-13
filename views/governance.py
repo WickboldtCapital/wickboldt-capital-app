@@ -43,9 +43,9 @@ with tab_arch:
     st.markdown("""
 # 🏗️ Wickboldt Capital: Enterprise Deployment & Architecture Brief
 
-**Version:** 3.3 (AI-Leveraged Lean Enterprise Architecture)  
+**Version:** 3.5 (Multi-Entity Flat Subdomain Architecture & Governance)  
 **Status:** Active Implementation  
-**Objective:** Deploy a highly scalable, secure, and performant dual-environment digital presence for Wickboldt Capital, utilizing specialized microservices to route traffic, deliver front-end marketing, compute backend workflows, and persist data. 
+**Objective:** Deploy a highly scalable, secure, and performant multi-entity digital presence for Wickboldt Capital, utilizing specialized microservices to route traffic, deliver front-end marketing, compute backend workflows, and isolate operational divisions. 
 
 ## Executive Summary: The AI-Leveraged Micro-Enterprise Thesis
 
@@ -144,6 +144,33 @@ Porkbun’s routing logic is the glue that makes the microservices architecture 
 
 **Security & AI Conclusion:**
 By treating security and AI telemetry as automated, built-in features rather than manual chores, the firm completely mitigates the operational risks of running lean. This layer ensures that as the company relies increasingly on AI agents to handle underwriting and scheduling, the system remains bulletproof, compliant, and structurally sound—allowing the founder to aggressively pursue growth with total peace of mind.
+
+---
+
+## 7. Future-Proofing & Multi-Entity Flat Subdomain Architecture
+
+**Subdomain Governance Strategy:**
+*As Wickboldt Capital expands its portfolio into distinct operational verticals—spanning Land Acquisition, Real Estate Development (RE), General Construction, Property Management, and Asset Finance—relying on a single monolithic web address creates severe technical debt and routing bottlenecks. To future-proof the digital infrastructure, the firm adopts a strict, hierarchical **flat subdomain taxonomy** anchored directly to the primary parent domain (`wickboldtcapital.com`).*
+
+*   **The Multi-Entity Real Estate Ecosystem:** 
+    Real estate operations naturally fracture into specialized functional entities. By designing a flat URL structure ahead of time, each division gains its own secure, isolated digital workspace while maintaining a unified institutional brand, completely avoiding complex and fragile nested subdomains (e.g., avoiding `portal.re.`).
+*   **Master Subdomain Expansion Reference Table:**
+
+| Subdomain | Target Platform | Operational Division & Primary Purpose |
+| :--- | :--- | :--- |
+| `wickboldtcapital.com` | Netlify (Global CDN) | Primary corporate parent landing page and institutional overview. |
+| `re.wickboldtcapital.com` | Netlify / Static | Real Estate Development division public presence, portfolio highlights, and site acquisition pitch decks. |
+| `portal.wickboldtcapital.com` | Railway (24/7 Compute) | Executive Command Center, proforma financial modeling, master library, and internal workflow execution. |
+| `build.wickboldtcapital.com` | Railway / Future | General Contracting operations, field logs, municipal permitting, HVAC load calculations, and subcontractor management. |
+| `pm.wickboldtcapital.com` | Railway / Future | Property Management division, lease tracking, maintenance ticketing, and tenant portal operations. |
+
+*   **Strategic Benefits of Pre-Planned Subdomains:**
+    *   **Namespace Collision Prevention:** Eliminates URL overlap as new software modules or independent company applications are spun up.
+    *   **Isolated Security Perimeters:** Restricts contractor and tenant access to specific subdomains (e.g., limiting subcontractors to `build` without exposing executive proformas on `portal`).
+    *   **Modular Microservice Scaling:** Allows individual divisions to upgrade their backend engines on Railway independently without disrupting other business units.
+
+**Subdomain Conclusion:**
+This proactive governance protocol ensures that as Wickboldt Capital scales into a multi-company enterprise, its digital architecture expands effortlessly without requiring costly domain restructuring or causing operational downtime.
 
 ---
 
