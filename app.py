@@ -115,16 +115,15 @@ elif not st.session_state.get("active_project"):
     pg = st.navigation([st.Page("views/control.py", title="Project Control", icon="📁")])
     pg.run()
 
-# State 3: Fully Logged In & Project Active -> Unlock the App
+# State 3: Fully Logged In & Project Active -> Unlock All Modules
 else:
     with st.sidebar:
-        # 2. FIXED LOGO HERE
         try:
             st.image("Logo.png", use_container_width=True)
         except Exception:
             pass
         st.markdown(f"**Logged in as:** `{st.session_state.get('email', 'User')}`")
-        st.markdown(f"**Role:** `{st.session_state.get('role', 'Viewer').capitalize()}`")
+        st.markdown(f"**Role:** `{st.session_state.get('role', 'Admin').capitalize()}`")
         if st.button("🚪 Sign Out", use_container_width=True):
             st.session_state["logged_in"] = False
             st.session_state["active_project"] = None
@@ -138,44 +137,36 @@ else:
             st.rerun()
         st.markdown("---")
 
-    # --- ROLE-BASED ACCESS CONTROL (RBAC) ---
-    # Convert to string to avoid tuple database errors
-    user_role = str(st.session_state.get("role", "viewer")).lower()
-
-    # Define standard pages everyone sees
+    # --- FULL UNRESTRICTED NAVIGATION FOR DEVELOPMENT ---
     pages = {
         "Project Management": [
             st.Page("views/dashboard.py", title="Executive Dashboard", icon="📊", default=True),
+            st.Page("views/control.py", title="Project Control", icon="📁"),
             st.Page("views/scheduling.py", title="Scheduling & Milestones", icon="🗓️"),
         ],
         "Financials & Underwriting": [
             st.Page("views/proforma.py", title="Proforma & Underwriting", icon="📈"),
-        ]
-    }
-
-    # 3. FIXED ADMIN CHECK HERE using "in"
-    if "admin" in user_role:
-        pages["Project Management"].append(st.Page("views/control.py", title="Project Control", icon="📁"))
-        pages["Project Management"].append(st.Page("views/documents.py", title="Secure Document Library", icon="🔒"))
-        pages["Financials & Underwriting"].append(st.Page("views/estimation.py", title="Cost Estimation", icon="🧮"))
-        pages["Financials & Underwriting"].append(st.Page("views/forecasting.py", title="Cash Flow Forecasting", icon="🔮"))
-        pages["Financials & Underwriting"].append(st.Page("views/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"))
-        
-        pages["Operations & Execution"] = [
+            st.Page("views/estimation.py", title="Cost Estimation", icon="🧮"),
+            st.Page("views/forecasting.py", title="Cash Flow Forecasting", icon="🔮"),
+            st.Page("views/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"),
+        ],
+        "Operations & Execution": [
             st.Page("views/engineering.py", title="Engineering Specs", icon="🏗️"),
             st.Page("views/quality.py", title="Quality Control", icon="✅"),
             st.Page("views/safety.py", title="Jobsite Safety", icon="🦺"),
             st.Page("views/training.py", title="Training & SOPs", icon="📚"), 
-        ]
-        
-        pages["Business & Governance"] = [
+        ],
+        "Business & Governance": [
+            st.Page("views/documents.py", title="Secure Document Library", icon="🔒"),
             st.Page("views/diligence.py", title="Due Diligence", icon="📑"),
             st.Page("views/marketing.py", title="Marketing Library", icon="📢"),
             st.Page("views/governance.py", title="Master Company Library", icon="🏢"),
             st.Page("views/user_management.py", title="User Management", icon="🔐"),
             st.Page("views/settings.py", title="Account Settings", icon="⚙️"),
         ]
+    }
 
     pg = st.navigation(pages)
     pg.run()
+
 # Force cloud refresh 2026
