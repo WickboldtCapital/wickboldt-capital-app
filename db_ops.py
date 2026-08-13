@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import json
 import pandas as pd
@@ -8,7 +9,11 @@ from core_backend import hash_password
 # ==========================================
 # 🌐 CLOUD DATABASE CONNECTION
 # ==========================================
-DB_URL = st.secrets["database"]["url"]
+# Check Railway server memory first, then fall back to local secrets.toml
+DB_URL = os.environ.get("DATABASE_URL")
+if not DB_URL:
+    DB_URL = st.secrets["database"]["url"]
+
 engine = create_engine(DB_URL, pool_size=5, max_overflow=10, pool_timeout=30, pool_pre_ping=True)
 
 def get_transaction(): return engine.begin()
@@ -147,6 +152,7 @@ def get_user_progress(email, table_name, column_name):
     with get_read_connection() as conn: return [r[0] for r in conn.execute(text(f"SELECT {column_name} FROM {table_name} WHERE user_email = :e"), {"e": email}).fetchall()]
 def mark_progress(email, table_name, column_name, record_id):
     with get_transaction() as conn: conn.execute(text(f"INSERT INTO {table_name} (user_email, {column_name}) VALUES (:e, :id)"), {"e": email, "id": record_id})
+    
 def delete_project(project_name, user_email="System"):
     """Permanently deletes a project and its associated milestones."""
     if project_name == "__MASTER_LIBRARY__": 
@@ -164,4 +170,5 @@ def delete_project(project_name, user_email="System"):
         st.cache_data.clear()
         return True, "Success"
     except Exception as e:
-        return False, str(e)    
+        return False, str(e)
+    
