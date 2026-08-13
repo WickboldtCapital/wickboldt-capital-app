@@ -51,7 +51,9 @@ if "active_project" not in st.session_state:
 if "nav_mode" not in st.session_state:
     st.session_state["nav_mode"] = "home"
 if "role" not in st.session_state:
-    st.session_state["role"] = "Admin"  # Default to Admin for full governance access
+    st.session_state["role"] = "Admin"
+if "email" not in st.session_state:
+    st.session_state["email"] = "steve.wickboldt.jr@gmail.com"
 
 # ==========================================
 # 📄 DEDICATED DOCUMENT VIEWER ROUTE
@@ -92,7 +94,7 @@ elif not st.session_state["logged_in"] and st.session_state["nav_mode"] == "logi
 elif not st.session_state.get("active_project"):
     with st.sidebar:
         st.markdown("### 🏗️ Wickboldt Capital")
-        st.caption(f"**User:** `{st.session_state.get('email', 'User')}`")
+        st.caption(f"**User:** `{st.session_state.get('email', 'steve.wickboldt.jr@gmail.com')}`")
         st.caption(f"**Role:** `{st.session_state.get('role', 'Admin').capitalize()}`")
         if st.button("🚪 Sign Out", use_container_width=True):
             st.session_state["logged_in"] = False
@@ -114,25 +116,31 @@ else:
         st.markdown("---")
 
     # --- TOP HEADER BAR ACROSS THE WORKSPACE ---
-    top_c1, top_c2, top_c3 = st.columns([3, 3, 2])
-    with top_c1:
-        st.markdown(f"👤 **Logged in as:** `{st.session_state.get('email', 'User')}`  \n🛡️ **Role:** `{st.session_state.get('role', 'Admin').capitalize()}`")
-    with top_c2:
-        st.markdown(f"📁 **Active Project:**  \n`{st.session_state['active_project']}`")
-    with top_c3:
-        bc1, bc2 = st.columns(2)
-        with bc1:
-            if st.button("🔄 Switch", use_container_width=True, help="Switch Project"):
-                st.session_state["active_project"] = None
-                st.rerun()
-        with bc2:
-            if st.button("🚪 Out", use_container_width=True, help="Sign Out"):
-                st.session_state["logged_in"] = False
-                st.session_state["active_project"] = None
-                st.session_state["role"] = "viewer"
-                st.session_state["nav_mode"] = "home"
-                st.rerun()
-    st.markdown("---")
+    try:
+        top_c1, top_c2, top_c3 = st.columns([3, 3, 2])
+        with top_c1:
+            u_email = st.session_state.get('email', 'steve.wickboldt.jr@gmail.com')
+            u_role = st.session_state.get('role', 'Admin')
+            st.markdown(f"👤 **Logged in as:** `{u_email}`  \n🛡️ **Role:** `{u_role.capitalize()}`")
+        with top_c2:
+            u_proj = st.session_state.get('active_project', 'None')
+            st.markdown(f"📁 **Active Project:**  \n`{u_proj}`")
+        with top_c3:
+            bc1, bc2 = st.columns(2)
+            with bc1:
+                if st.button("🔄 Switch", use_container_width=True, key="top_switch_btn", help="Switch Project"):
+                    st.session_state["active_project"] = None
+                    st.rerun()
+            with bc2:
+                if st.button("🚪 Out", use_container_width=True, key="top_signout_btn", help="Sign Out"):
+                    st.session_state["logged_in"] = False
+                    st.session_state["active_project"] = None
+                    st.session_state["role"] = "viewer"
+                    st.session_state["nav_mode"] = "home"
+                    st.rerun()
+        st.markdown("---")
+    except Exception as e:
+        st.error(f"Error rendering top bar: {e}")
 
     # --- UNLOCKED ENTERPRISE WORKSPACE ---
     pages = {
@@ -162,5 +170,9 @@ else:
         ]
     }
 
-    pg = st.navigation(pages)
-    pg.run()
+    try:
+        pg = st.navigation(pages)
+        pg.run()
+    except Exception as nav_err:
+        st.error(f"Navigation routing error: {nav_err}")
+        
