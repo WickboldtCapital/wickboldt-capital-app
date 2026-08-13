@@ -109,12 +109,6 @@ elif not st.session_state.get("active_project"):
 
 # State 3: Fully Logged In & Project Active -> Unlock All Enterprise Workspace Modules
 else:
-    # --- CLEAN SIDEBAR (No Logo, Max Space for All 15+ Tabs) ---
-    with st.sidebar:
-        st.markdown("### 🏗️ Wickboldt Capital")
-        st.caption("Enterprise Development Suite")
-        st.markdown("---")
-
     # --- TOP HEADER BAR ACROSS THE WORKSPACE ---
     try:
         top_c1, top_c2, top_c3 = st.columns([3, 3, 2])
@@ -142,7 +136,13 @@ else:
     except Exception as e:
         st.error(f"Error rendering top bar: {e}")
 
-    # --- UNLOCKED ENTERPRISE WORKSPACE ---
+    # --- CLEAN SIDEBAR BRANDING ---
+    with st.sidebar:
+        st.markdown("### 🏗️ Wickboldt Capital")
+        st.caption("Enterprise Development Suite")
+        st.markdown("---")
+
+    # --- UNLOCKED ENTERPRISE WORKSPACE NAVIGATION ---
     pages = {
         "Project Management": [
             st.Page("pages/dashboard.py", title="Executive Dashboard", icon="📊", default=True),
@@ -175,4 +175,3 @@ else:
         pg.run()
     except Exception as nav_err:
         st.error(f"Navigation routing error: {nav_err}")
-        
