@@ -8,7 +8,7 @@ with ui_placeholder.container():
     with col2:
         # Bulletproof image loader looking in the main root folder
         try:
-            st.image("logo.png", use_container_width=True)
+            st.image("Logo.png", use_container_width=True)
         except Exception:
             st.caption("(Corporate logo syncing to cloud...)")
             
