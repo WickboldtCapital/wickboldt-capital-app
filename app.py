@@ -32,7 +32,6 @@ def set_svg_favicon(svg_path):
     except Exception:
         pass
 
-# IMPORTANT: Make sure this exactly matches the file name in your assets folder!
 set_svg_favicon("assets/logo.svg")
 
 # Apply custom Wickboldt styling
@@ -57,21 +56,16 @@ if "role" not in st.session_state:
 # ==========================================
 # 📄 DEDICATED DOCUMENT VIEWER ROUTE
 # ==========================================
-# If a user clicked a document link in another tab, intercept it here.
 if "view_doc" in st.query_params:
-    # Get the title from the URL
     doc_title = st.query_params["view_doc"]
     library_data = get_library_state()
     
     if doc_title in library_data:
         st.title(doc_title)
         st.divider()
-        # Render the full, unredacted text
         st.markdown(library_data[doc_title])
     else:
         st.error(f"Document '{doc_title}' not found in the library.")
-    
-    # Halt the rest of the app from loading (hides sidebar and routing)
     st.stop()
 
 
@@ -94,10 +88,9 @@ elif not st.session_state["logged_in"] and st.session_state["nav_mode"] == "logi
     pg = st.navigation([st.Page("views/login.py", title="Sign In", icon="🔒")], position="hidden")
     pg.run()
 
-# State 2: Logged In, but No Active Project -> Show Control Screen
+# State 2: Logged In, but No Active Project -> Show Project Control Gatekeeper
 elif not st.session_state.get("active_project"):
     with st.sidebar:
-        # 1. FIXED LOGO HERE
         try:
             st.image("Logo.png", use_container_width=True)
         except Exception:
@@ -110,12 +103,13 @@ elif not st.session_state.get("active_project"):
             st.session_state["nav_mode"] = "home"
             st.rerun()
         st.markdown("---")
-        st.warning("⚠️ No active project loaded. Select one to unlock the portfolio modules.")
+        st.warning("⚠️ No active project loaded. Select or create one below to unlock the workspace.")
         
+    # Render ONLY control.py as the gatekeeper
     pg = st.navigation([st.Page("views/control.py", title="Project Control", icon="📁")])
     pg.run()
 
-# State 3: Fully Logged In & Project Active -> Unlock All Modules
+# State 3: Fully Logged In & Project Active -> Unlock All Enterprise Workspace Modules
 else:
     with st.sidebar:
         try:
@@ -124,24 +118,28 @@ else:
             pass
         st.markdown(f"**Logged in as:** `{st.session_state.get('email', 'User')}`")
         st.markdown(f"**Role:** `{st.session_state.get('role', 'Admin').capitalize()}`")
+        
+        st.markdown("---")
+        st.success(f"📁 **Active Project:**\n{st.session_state['active_project']}")
+        
+        # Clean Switch Project Button (Clears state and drops back to gatekeeper)
+        if st.button("🔄 Switch Project", use_container_width=True):
+            st.session_state["active_project"] = None
+            st.rerun()
+            
         if st.button("🚪 Sign Out", use_container_width=True):
             st.session_state["logged_in"] = False
             st.session_state["active_project"] = None
             st.session_state["role"] = "viewer"
             st.session_state["nav_mode"] = "home"
             st.rerun()
-        st.markdown("---")
-        st.success(f"📁 **Active Project:**\n{st.session_state['active_project']}")
-        if st.button("🔄 Close Project & Return Home", use_container_width=True):
-            st.session_state["active_project"] = None
-            st.rerun()
+            
         st.markdown("---")
 
-    # --- FULL UNRESTRICTED NAVIGATION FOR DEVELOPMENT ---
+    # --- UNLOCKED ENTERPRISE WORKSPACE (Control.py excluded from here) ---
     pages = {
         "Project Management": [
             st.Page("views/dashboard.py", title="Executive Dashboard", icon="📊", default=True),
-            st.Page("views/control.py", title="Project Control", icon="📁"),
             st.Page("views/scheduling.py", title="Scheduling & Milestones", icon="🗓️"),
         ],
         "Financials & Underwriting": [
@@ -168,5 +166,3 @@ else:
 
     pg = st.navigation(pages)
     pg.run()
-
-# Force cloud refresh 2026
