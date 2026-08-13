@@ -135,33 +135,29 @@ else:
                 st.rerun()
         st.markdown("---")
 
-    # --- UNLOCKED ENTERPRISE WORKSPACE NAVIGATION ---
-    workspace_pages = {
-        "Project Management": [
-            st.Page("pages/dashboard.py", title="Executive Dashboard", icon="📊", default=True),
-            st.Page("pages/scheduling.py", title="Scheduling & Milestones", icon="🗓️"),
-        ],
-        "Financials & Underwriting": [
-            st.Page("pages/proforma.py", title="Proforma & Underwriting", icon="📈"),
-            st.Page("pages/estimation.py", title="Cost Estimation", icon="🧮"),
-            st.Page("pages/forecasting.py", title="Cash Flow Forecasting", icon="🔮"),
-            st.Page("pages/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"),
-        ],
-        "Operations & Execution": [
-            st.Page("pages/engineering.py", title="Engineering Specs", icon="🏗️"),
-            st.Page("pages/quality.py", title="Quality Control", icon="✅"),
-            st.Page("pages/safety.py", title="Jobsite Safety", icon="🦺"),
-            st.Page("pages/training.py", title="Training & SOPs", icon="📚"), 
-        ],
-        "Business & Governance": [
-            st.Page("pages/documents.py", title="Secure Document Library", icon="🔒"),
-            st.Page("pages/diligence.py", title="Due Diligence", icon="📑"),
-            st.Page("pages/marketing.py", title="Marketing Library", icon="📢"),
-            st.Page("pages/governance.py", title="Master Company Library", icon="🏢"),
-            st.Page("pages/user_management.py", title="User Management", icon="🔐"),
-            st.Page("pages/settings.py", title="Account Settings", icon="⚙️"),
-        ]
-    }
+    # --- UNLOCKED FLAT ENTERPRISE WORKSPACE NAVIGATION ---
+    workspace_pages = [
+        # Project Management
+        st.Page("pages/dashboard.py", title="Executive Dashboard", icon="📊", default=True),
+        st.Page("pages/scheduling.py", title="Scheduling & Milestones", icon="🗓️"),
+        # Financials & Underwriting
+        st.Page("pages/proforma.py", title="Proforma & Underwriting", icon="📈"),
+        st.Page("pages/estimation.py", title="Cost Estimation", icon="🧮"),
+        st.Page("pages/forecasting.py", title="Cash Flow Forecasting", icon="🔮"),
+        st.Page("pages/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"),
+        # Operations & Execution
+        st.Page("pages/engineering.py", title="Engineering Specs", icon="🏗️"),
+        st.Page("pages/quality.py", title="Quality Control", icon="✅"),
+        st.Page("pages/safety.py", title="Jobsite Safety", icon="🦺"),
+        st.Page("pages/training.py", title="Training & SOPs", icon="📚"),
+        # Business & Governance (Admin)
+        st.Page("pages/documents.py", title="Secure Document Library", icon="🔒"),
+        st.Page("pages/diligence.py", title="Due Diligence", icon="📑"),
+        st.Page("pages/marketing.py", title="Marketing Library", icon="📢"),
+        st.Page("pages/governance.py", title="Master Company Library", icon="🏢"),
+        st.Page("pages/user_management.py", title="User Management", icon="🔐"),
+        st.Page("pages/settings.py", title="Account Settings", icon="⚙️"),
+    ]
 
     pg = st.navigation(workspace_pages)
     pg.run()
