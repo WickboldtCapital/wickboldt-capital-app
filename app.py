@@ -1,8 +1,8 @@
 import streamlit as st
 import urllib.parse
 import base64
-from core_backend import auto_backup_db, init_db, get_logo_html, inject_custom_theme
-from db_ops import get_library_state  # <-- Pulled from db_ops instead of core_backend
+from core_backend import auto_backup_db, init_db, inject_custom_theme
+from db_ops import get_library_state  
 
 # --- CONFIG & SETUP ---
 st.set_page_config(
@@ -97,7 +97,11 @@ elif not st.session_state["logged_in"] and st.session_state["nav_mode"] == "logi
 # State 2: Logged In, but No Active Project -> Show Control Screen
 elif not st.session_state.get("active_project"):
     with st.sidebar:
-        st.markdown(get_logo_html(), unsafe_allow_html=True)
+        # 1. FIXED LOGO HERE
+        try:
+            st.image("Logo.png", use_container_width=True)
+        except Exception:
+            pass
         st.markdown(f"**Logged in as:** `{st.session_state.get('email', 'User')}`")
         st.markdown(f"**Role:** `{st.session_state.get('role', 'Viewer').capitalize()}`")
         if st.button("🚪 Sign Out", use_container_width=True):
@@ -114,7 +118,11 @@ elif not st.session_state.get("active_project"):
 # State 3: Fully Logged In & Project Active -> Unlock the App
 else:
     with st.sidebar:
-        st.markdown(get_logo_html(), unsafe_allow_html=True)
+        # 2. FIXED LOGO HERE
+        try:
+            st.image("Logo.png", use_container_width=True)
+        except Exception:
+            pass
         st.markdown(f"**Logged in as:** `{st.session_state.get('email', 'User')}`")
         st.markdown(f"**Role:** `{st.session_state.get('role', 'Viewer').capitalize()}`")
         if st.button("🚪 Sign Out", use_container_width=True):
@@ -131,7 +139,8 @@ else:
         st.markdown("---")
 
     # --- ROLE-BASED ACCESS CONTROL (RBAC) ---
-    user_role = st.session_state.get("role", "viewer").lower()
+    # Convert to string to avoid tuple database errors
+    user_role = str(st.session_state.get("role", "viewer")).lower()
 
     # Define standard pages everyone sees
     pages = {
@@ -144,8 +153,8 @@ else:
         ]
     }
 
-    # Add Admin-only pages
-    if user_role == "admin":
+    # 3. FIXED ADMIN CHECK HERE using "in"
+    if "admin" in user_role:
         pages["Project Management"].append(st.Page("views/control.py", title="Project Control", icon="📁"))
         pages["Project Management"].append(st.Page("views/documents.py", title="Secure Document Library", icon="🔒"))
         pages["Financials & Underwriting"].append(st.Page("views/estimation.py", title="Cost Estimation", icon="🧮"))
@@ -156,7 +165,7 @@ else:
             st.Page("views/engineering.py", title="Engineering Specs", icon="🏗️"),
             st.Page("views/quality.py", title="Quality Control", icon="✅"),
             st.Page("views/safety.py", title="Jobsite Safety", icon="🦺"),
-            st.Page("views/training.py", title="Training & SOPs", icon="📚"), # <-- NEW LMS ADDED HERE
+            st.Page("views/training.py", title="Training & SOPs", icon="📚"), 
         ]
         
         pages["Business & Governance"] = [
