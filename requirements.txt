@@ -3,6 +3,10 @@ pandas
 plotly
 sqlalchemy
 psycopg2-binary
-fpdf==1.7.2
+fpdf2
 streamlit-quill
 supabase==2.6.0
+google-api-python-client
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
