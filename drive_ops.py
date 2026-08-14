@@ -64,3 +64,22 @@ def upload_pdf_to_drive(file_bytes, filename, folder_id):
         return True, file.get('id')
     except Exception as e:
         return False, str(e)
+
+def list_drive_contents(folder_id):
+    """Fetches all files and subfolders inside a specific Google Drive folder."""
+    try:
+        drive_service, _ = get_workspace_services()
+        
+        # Query for items inside the target folder that are not in the trash
+        query = f"'{folder_id}' in parents and trashed = false"
+        
+        # Order by folder first, then alphabetical name
+        results = drive_service.files().list(
+            q=query, 
+            fields="files(id, name, mimeType)", 
+            orderBy="folder, name"
+        ).execute()
+        
+        return results.get('files', [])
+    except Exception as e:
+        return [{"name": f"Error loading folder: {str(e)}", "mimeType": "error"}]
