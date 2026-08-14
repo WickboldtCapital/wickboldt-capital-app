@@ -1,9 +1,9 @@
 import streamlit as st
 import base64
-import re
 from fpdf import FPDF
 from streamlit_quill import st_quill
 from db_ops import get_library_state, update_library_doc
+from drive_ops import read_google_doc, upload_pdf_to_drive
 
 # --- SECURITY GUARD ---
 if st.session_state.get("role") != "Admin":
@@ -11,44 +11,50 @@ if st.session_state.get("role") != "Admin":
     st.stop()
 
 # ==========================================
-# 📄 FPDF ENGINE CONFIGURATION
+# 📄 FPDF2 ENGINE CONFIGURATION
 # ==========================================
 class WickboldtPDF(FPDF):
     def header(self):
-        self.set_font("Arial", "B", 14)
+        # fpdf2 uses helvetica as the default modern font
+        self.set_font("helvetica", "B", 14)
         self.set_text_color(0, 51, 160) # Corporate Royal Blue
-        self.cell(0, 10, "Wickboldt Capital", border=False, ln=True, align="R")
-        self.set_font("Arial", "I", 10)
+        self.cell(w=0, h=10, text="Wickboldt Capital", border=0, new_x="LMARGIN", new_y="NEXT", align="R")
+        self.set_font("helvetica", "I", 10)
         self.set_text_color(128, 128, 128)
-        self.cell(0, 5, "Enterprise Governance Library", border=False, ln=True, align="R")
+        self.cell(w=0, h=5, text="Enterprise Governance Library", border=0, new_x="LMARGIN", new_y="NEXT", align="R")
         self.line(10, 25, 200, 25)
         self.ln(10)
 
     def footer(self):
         self.set_y(-15)
-        self.set_font("Arial", "I", 8)
+        self.set_font("helvetica", "I", 8)
         self.set_text_color(128, 128, 128)
-        self.cell(0, 10, "Today's Foundation. Tomorrow's Legacy.  |  Page " + str(self.page_no()), 0, 0, "C")
-
-def clean_html_for_pdf(html_text):
-    """Converts Quill HTML output into clean text for the PDF compiler."""
-    if not html_text:
-        return ""
-    # Convert HTML paragraphs and breaks to actual newlines
-    text = html_text.replace('</p>', '\n\n').replace('<br>', '\n')
-    text = text.replace('<li>', '\n• ').replace('</li>', '')
-    # Strip all remaining HTML tags
-    text = re.sub('<[^<]+>', '', text)
-    # Clean up excessive newlines
-    text = re.sub(r'\n\s*\n', '\n\n', text)
-    return text.strip()
+        self.cell(w=0, h=10, text="Today's Foundation. Tomorrow's Legacy.  |  Page " + str(self.page_no()), align="C")
 
 # ==========================================
 # 🖥️ GOVERNANCE UI & EDITOR
 # ==========================================
-st.title("🏢 Master Company Library")
-st.markdown("Select a master template, add a new document, or generate a finalized PDF.")
+st.title("🏢 Master Company Library & Workspace Sync")
+st.markdown("Manage enterprise documentation, sync with Google Workspace, and generate certified PDFs.")
 st.divider()
+
+# --- GOOGLE DRIVE SYNC PANEL ---
+with st.expander("☁️ Google Workspace Sync Settings", expanded=False):
+    st.markdown("Sync your app directly with your live Google Workspace documents.")
+    # The default ID is set to your Deployment Brief
+    default_doc_id = "1k5P4Lxo82lvVQ080lsGpkc6gMEs4v8vl9gOJN_ElRn0"
+    target_doc_id = st.text_input("Google Doc ID", value=default_doc_id)
+    target_folder_id = st.text_input("Google Drive Folder ID (for PDF backups)", placeholder="Paste folder ID here...")
+    
+    if st.button("📥 Pull Latest from Google Doc"):
+        with st.spinner("Fetching live content from Google Workspace..."):
+            fetched_text = read_google_doc(target_doc_id)
+            if fetched_text and not fetched_text.startswith("Error"):
+                update_library_doc("Enterprise Deployment & Architecture Brief", fetched_text, "Google Workspace Sync")
+                st.success("✅ Successfully pulled and updated brief from Google Drive!")
+                st.rerun()
+            else:
+                st.error(fetched_text)
 
 # Fetch from database
 library_data = get_library_state()
@@ -57,7 +63,7 @@ library_data = get_library_state()
 if not library_data:
     st.toast("Database returned empty. Restoring Wickboldt Master Templates from secure backup...")
     library_data = {
-        "Master Subcontractor Agreement": "WICKBOLDT CAPITAL, LLC\nMaster Subcontractor Agreement\n\nThis agreement outlines the standard terms, insurance requirements, and quality expectations for all subcontractors operating on Wickboldt Capital projects. All contractors must provide proof of liability insurance prior to commencing work."
+        "Master Subcontractor Agreement": "<h3>WICKBOLDT CAPITAL, LLC</h3><p><b>Master Subcontractor Agreement</b></p><p>This agreement outlines the standard terms, insurance requirements, and quality expectations for all subcontractors operating on Wickboldt Capital projects.</p>"
     }
 
 # --- DOCUMENT SELECTOR ---
@@ -84,7 +90,7 @@ tab_edit, tab_pdf = st.tabs(["📝 Enterprise Rich Text Editor", "📄 PDF Viewe
 with tab_edit:
     st.markdown(f"### Editing: {active_title if active_title else 'New Document'}")
     
-    # 🌟 ENTERPRISE RICH TEXT EDITOR (Google Docs Style)
+    # 🌟 ENTERPRISE RICH TEXT EDITOR
     edited_text = st_quill(
         value=current_text,
         placeholder="Draft your enterprise document here...",
@@ -114,27 +120,23 @@ with tab_pdf:
     else:
         st.markdown(f"### PDF Preview: {active_title}")
         
-        if st.button("🔄 Generate PDF Render", type="primary"):
-            with st.spinner("Compiling PDF in memory..."):
+        if st.button("🔄 Generate Rich PDF Render", type="primary"):
+            with st.spinner("Compiling PDF with rich formatting..."):
                 pdf = WickboldtPDF()
                 pdf.add_page()
                 
                 # Title
-                pdf.set_font("Arial", "B", 16)
+                pdf.set_font("helvetica", "B", 16)
                 pdf.set_text_color(0, 0, 0)
-                pdf.cell(0, 10, active_title, ln=True, align="C")
+                pdf.cell(w=0, h=10, text=active_title, new_x="LMARGIN", new_y="NEXT", align="C")
                 pdf.ln(5)
                 
-                # Clean HTML to Plain Text for FPDF
-                safe_text = clean_html_for_pdf(edited_text)
+                # Render the HTML Native directly into the PDF!
+                pdf.set_font("helvetica", "", 11)
+                pdf.write_html(edited_text)
                 
-                # Body Text
-                pdf.set_font("Arial", "", 11)
-                safe_text = safe_text.encode('latin-1', 'replace').decode('latin-1')
-                pdf.multi_cell(0, 7, safe_text)
-                
-                # Generate directly into RAM (Zero-disk usage)
-                pdf_bytes = pdf.output(dest="S").encode("latin-1")
+                # Generate directly into RAM using fpdf2's modern output style
+                pdf_bytes = bytes(pdf.output())
                 base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
                 
                 st.download_button(
@@ -143,6 +145,15 @@ with tab_pdf:
                     file_name=f"{active_title.replace(' ', '_')}.pdf",
                     mime="application/pdf"
                 )
+                
+                # Push to Drive option if folder ID is provided
+                if target_folder_id:
+                    if st.button("☁️ Push PDF to Google Drive Folder"):
+                        success, res = upload_pdf_to_drive(pdf_bytes, f"{active_title}.pdf", target_folder_id)
+                        if success:
+                            st.success(f"✅ Successfully uploaded to Google Drive! File ID: {res}")
+                        else:
+                            st.error(f"❌ Upload failed: {res}")
                 
                 st.markdown("#### Document Preview")
                 pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="700" type="application/pdf"></iframe>'
