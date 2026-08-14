@@ -11,13 +11,20 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- BULLETPROOF SVG FAVICON INJECTION ---
-def set_svg_favicon(svg_path):
+# --- BULLETPROOF SVG FAVICON & SIDEBAR CSS INJECTION ---
+def apply_custom_overrides(svg_path):
     try:
         with open(svg_path, "rb") as f:
             encoded_svg = base64.b64encode(f.read()).decode()
         st.markdown(
             f"""
+            <style>
+                /* Fix 'View more' button color clash in sidebar */
+                [data-testid="stSidebarNavItems"] button {{
+                    color: #ffffff !important;
+                    background-color: rgba(255,255,255,0.1) !important;
+                }}
+            </style>
             <script>
                 var targetDoc = window.parent.document;
                 var link = targetDoc.querySelector("link[rel*='icon']") || targetDoc.createElement('link');
@@ -32,12 +39,9 @@ def set_svg_favicon(svg_path):
     except Exception:
         pass
 
-set_svg_favicon("assets/logo.svg")
-
-# Apply custom Wickboldt styling
+apply_custom_overrides("assets/logo.svg")
 inject_custom_theme()
 
-# Run Database Initialization & Backups ONLY ONCE per session to eliminate lag
 if "system_initialized" not in st.session_state:
     init_db()
     auto_backup_db()
@@ -74,27 +78,21 @@ if "view_doc" in st.query_params:
         st.error(f"Document '{doc_title}' not found in the library.")
     st.stop()
 
-
 # ==========================================
-# 🚦 DYNAMIC ROUTING (The Traffic Cop)
+# 🚦 DYNAMIC ROUTING
 # ==========================================
-
-# State 0: Not Logged In & In Home Mode -> Show Public Front Page
 if not st.session_state["logged_in"] and st.session_state["nav_mode"] == "home":
     pg = st.navigation([st.Page("pages/frontpage.py", title="Home", icon="🏠")], position="hidden")
     pg.run()
 
-# State 1: Not Logged In & In Login Mode -> Show Login Screen
 elif not st.session_state["logged_in"] and st.session_state["nav_mode"] == "login":
     with st.sidebar:
         if st.button("← Return to Home", use_container_width=True):
             st.session_state["nav_mode"] = "home"
             st.rerun()
-            
     pg = st.navigation([st.Page("pages/login.py", title="Sign In", icon="🔒")], position="hidden")
     pg.run()
 
-# State 2: Logged In, but No Active Project -> Show Project Control Gatekeeper
 elif not st.session_state.get("active_project"):
     with st.sidebar:
         st.markdown("### 🏗️ Wickboldt Capital")
@@ -111,9 +109,8 @@ elif not st.session_state.get("active_project"):
     pg = st.navigation([st.Page("pages/control.py", title="Project Control", icon="📁")])
     pg.run()
 
-# State 3: Fully Logged In & Project Active -> Unlock All Enterprise Workspace Modules
 else:
-    # --- ENTERPRISE SIDEBAR (Admin Controls & Navigation) ---
+    # --- ENTERPRISE SIDEBAR ---
     with st.sidebar:
         st.markdown("### 🏗️ Wickboldt Capital")
         st.markdown(f"👤 `{st.session_state.get('email', 'steve.wickboldt.jr@gmail.com')}`")
@@ -135,7 +132,7 @@ else:
                 st.rerun()
         st.markdown("---")
 
-    # --- UNLOCKED ENTERPRISE WORKSPACE NAVIGATION (Grouped with Section Titles) ---
+    # --- UNLOCKED ENTERPRISE WORKSPACE NAVIGATION (Grouped) ---
     workspace_pages = {
         "Project Management": [
             st.Page("pages/dashboard.py", title="Executive Dashboard", icon="📊", default=True),
