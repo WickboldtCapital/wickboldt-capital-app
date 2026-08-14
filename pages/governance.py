@@ -1,6 +1,8 @@
 import streamlit as st
 import base64
+import re
 from fpdf import FPDF
+from streamlit_quill import st_quill
 from db_ops import get_library_state, update_library_doc
 
 # --- SECURITY GUARD ---
@@ -28,6 +30,19 @@ class WickboldtPDF(FPDF):
         self.set_text_color(128, 128, 128)
         self.cell(0, 10, "Today's Foundation. Tomorrow's Legacy.  |  Page " + str(self.page_no()), 0, 0, "C")
 
+def clean_html_for_pdf(html_text):
+    """Converts Quill HTML output into clean text for the PDF compiler."""
+    if not html_text:
+        return ""
+    # Convert HTML paragraphs and breaks to actual newlines
+    text = html_text.replace('</p>', '\n\n').replace('<br>', '\n')
+    text = text.replace('<li>', '\n• ').replace('</li>', '')
+    # Strip all remaining HTML tags
+    text = re.sub('<[^<]+>', '', text)
+    # Clean up excessive newlines
+    text = re.sub(r'\n\s*\n', '\n\n', text)
+    return text.strip()
+
 # ==========================================
 # 🖥️ GOVERNANCE UI & EDITOR
 # ==========================================
@@ -35,20 +50,17 @@ st.title("🏢 Master Company Library")
 st.markdown("Select a master template, add a new document, or generate a finalized PDF.")
 st.divider()
 
-# Try to pull from the database first
+# Fetch from database
 library_data = get_library_state()
 
-# --- THE FAILSAFE: RESTORE MASTER DOCUMENTS IF DB IS WIPED ---
+# --- THE FAILSAFE ---
 if not library_data:
     st.toast("Database returned empty. Restoring Wickboldt Master Templates from secure backup...")
     library_data = {
-        "Master Subcontractor Agreement": "WICKBOLDT CAPITAL, LLC\nMaster Subcontractor Agreement\n\nThis agreement outlines the standard terms, insurance requirements, and quality expectations for all subcontractors operating on Wickboldt Capital projects. All contractors must provide proof of liability insurance prior to commencing work.",
-        "HVAC Engineering & Installation Addendum": "HVAC SYSTEM INSTALLATION ADDENDUM\n\nAll HVAC installations must comply with ACCA Manual J, S, and D specifications. Thermostat offset calculations and Brushless Direct Current ceiling fan airflow dynamics must be factored into the final engineering report prior to permit submittal.",
-        "FEMA 50% Rule & Elevation Addendum": "ELEVATION & FOUNDATION ADDENDUM\n\nFor structure relocations and renovations, final elevation specifications must be strictly certified to 21.12 feet to comply with floodplain management and FEMA guidelines. Elevation Certificates must be provided upon foundation completion.",
-        "Standard Draw Schedule": "CONSTRUCTION DRAW SCHEDULE\n\nPhase 1: Foundation, Site Layout & Underground Utilities (20%)\nPhase 2: Framing, ICF Assembly, & Dry-In (30%)\nPhase 3: MEP Rough-In (20%)\nPhase 4: Finishes, Trim & Paint (20%)\nPhase 5: Final Punchlist & Certificate of Occupancy (10%)"
+        "Master Subcontractor Agreement": "WICKBOLDT CAPITAL, LLC\nMaster Subcontractor Agreement\n\nThis agreement outlines the standard terms, insurance requirements, and quality expectations for all subcontractors operating on Wickboldt Capital projects. All contractors must provide proof of liability insurance prior to commencing work."
     }
 
-# --- DOCUMENT SELECTOR (WITH CREATE NEW FEATURE) ---
+# --- DOCUMENT SELECTOR ---
 doc_titles = sorted(list(library_data.keys()))
 options = ["-- Create New Document --"] + doc_titles
 
@@ -67,19 +79,26 @@ else:
 st.markdown("---")
 
 # --- DUAL WORKSPACE: EDITOR & VIEWER ---
-tab_edit, tab_pdf = st.tabs(["📝 Text Editor", "📄 PDF Viewer & Export"])
+tab_edit, tab_pdf = st.tabs(["📝 Enterprise Rich Text Editor", "📄 PDF Viewer & Export"])
 
 with tab_edit:
     st.markdown(f"### Editing: {active_title if active_title else 'New Document'}")
     
-    # Live text editor
-    edited_text = st.text_area("Document Content", value=current_text, height=500, label_visibility="collapsed")
+    # 🌟 ENTERPRISE RICH TEXT EDITOR (Google Docs Style)
+    edited_text = st_quill(
+        value=current_text,
+        placeholder="Draft your enterprise document here...",
+        html=True,
+        key="quill_editor"
+    )
     
     col_save, _ = st.columns([1, 4])
     with col_save:
         if st.button("💾 Save to Database", type="primary", use_container_width=True):
             if active_title.strip() == "":
                 st.error("⚠️ Please enter a document title before saving.")
+            elif not edited_text:
+                st.error("⚠️ Document cannot be empty.")
             else:
                 try:
                     user_email = st.session_state.get("user_email", "System")
@@ -106,9 +125,12 @@ with tab_pdf:
                 pdf.cell(0, 10, active_title, ln=True, align="C")
                 pdf.ln(5)
                 
+                # Clean HTML to Plain Text for FPDF
+                safe_text = clean_html_for_pdf(edited_text)
+                
                 # Body Text
                 pdf.set_font("Arial", "", 11)
-                safe_text = edited_text.encode('latin-1', 'replace').decode('latin-1')
+                safe_text = safe_text.encode('latin-1', 'replace').decode('latin-1')
                 pdf.multi_cell(0, 7, safe_text)
                 
                 # Generate directly into RAM (Zero-disk usage)
