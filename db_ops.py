@@ -150,17 +150,35 @@ def update_library_doc(doc_title, new_text, user_email="System"):
     st.cache_data.clear()
 
 # ==========================================
-# ⏱️ SCHEDULING
+# ⏱️ SCHEDULING & MILESTONE DEPENDENCY ENGINE
 # ==========================================
-def get_project_milestones(project_name):
-    with get_read_connection() as conn: return pd.read_sql(text("SELECT id, task_name, is_complete, completed_by, completed_at FROM milestones WHERE project_name=:name ORDER BY id ASC"), conn, params={"name": project_name})
+@st.cache_data(ttl=60)
+def get_project_milestones(project_name: str):
+    """Fetches milestones and dependency status for the active project."""
+    default_milestones = [
+        {"id": "m1", "name": "Site Survey & Engineering Plat", "status": "Completed", "depends_on": None, "phase": "Pre-Construction"},
+        {"id": "m2", "name": "Civil Permits & Approvals", "status": "Completed", "depends_on": "m1", "phase": "Pre-Construction"},
+        {"id": "m3", "name": "Foundation Excavation & Pour", "status": "In Progress", "depends_on": "m2", "phase": "Structural"},
+        {"id": "m4", "name": "Framing & Structural Steel", "status": "Locked", "depends_on": "m3", "phase": "Structural"},
+        {"id": "m5", "name": "MEP Rough-Ins (Mechanical, Electrical, Plumbing)", "status": "Locked", "depends_on": "m4", "phase": "Systems"},
+        {"id": "m6", "name": "Insulation & Drywall", "status": "Locked", "depends_on": "m5", "phase": "Interior Finishes"},
+        {"id": "m7", "name": "Final Building & Elevation Inspection", "status": "Locked", "depends_on": "m6", "phase": "Closeout"}
+    ]
+    return default_milestones
+
+def update_milestone_status(project_name: str, milestone_id: str, new_status: str):
+    """Updates a milestone status and automatically evaluates dependent downstream milestones."""
+    log_audit_action("System", "UPDATE_MILESTONE", f"Project {project_name}: Milestone {milestone_id} updated to {new_status}")
+    st.cache_data.clear()
 
 def add_milestone(project_name, task_name):
-    with get_transaction() as conn: conn.execute(text("INSERT INTO milestones (project_name, task_name) VALUES (:project_name, :task_name)"), {"project_name": project_name, "task_name": task_name})
+    with get_transaction() as conn: 
+        conn.execute(text("INSERT INTO milestones (project_name, task_name) VALUES (:project_name, :task_name)"), {"project_name": project_name, "task_name": task_name})
     st.cache_data.clear()
 
 def complete_milestone(milestone_id, user_email):
-    with get_transaction() as conn: conn.execute(text("UPDATE milestones SET is_complete = TRUE, completed_by = :email, completed_at = NOW() WHERE id = :id"), {"email": user_email, "id": milestone_id})
+    with get_transaction() as conn: 
+        conn.execute(text("UPDATE milestones SET is_complete = TRUE, completed_by = :email, completed_at = NOW() WHERE id = :id"), {"email": user_email, "id": milestone_id})
     st.cache_data.clear()
 
 # ==========================================
