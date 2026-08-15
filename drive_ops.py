@@ -84,3 +84,4 @@ def list_drive_contents(folder_id):
         return results.get('files', [])
     except Exception as e:
         return [{"name": f"Error loading folder: {str(e)}", "mimeType": "error"}]
+    
