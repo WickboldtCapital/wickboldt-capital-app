@@ -7,13 +7,17 @@ from sqlalchemy.exc import IntegrityError, ProgrammingError
 from core_backend import hash_password
 
 # ==========================================
-# 🌐 CLOUD DATABASE CONNECTION
+# 🌐 CLOUD DATABASE CONNECTION (CACHED)
 # ==========================================
-DB_URL = os.environ.get("DATABASE_URL")
-if not DB_URL:
-    DB_URL = st.secrets["database"]["url"]
+@st.cache_resource
+def get_db_engine():
+    DB_URL = os.environ.get("DATABASE_URL")
+    if not DB_URL:
+        DB_URL = st.secrets["database"]["url"]
+    # Initializes the connection pool exactly once to prevent memory overload
+    return create_engine(DB_URL, pool_size=5, max_overflow=10, pool_timeout=30, pool_pre_ping=True)
 
-engine = create_engine(DB_URL, pool_size=5, max_overflow=10, pool_timeout=30, pool_pre_ping=True)
+engine = get_db_engine()
 
 def get_transaction(): return engine.begin()
 def get_read_connection(): return engine.connect()
