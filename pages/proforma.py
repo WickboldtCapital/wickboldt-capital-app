@@ -25,19 +25,37 @@ with col1:
     equity_target = st.slider("Target Equity Position (%)", 0, 100, 25)
     interest_rate = st.number_input("Debt Interest Rate (%)", 1.0, 15.0, 7.5, step=0.25)
 
-# --- CALCULATIONS ---
-# Total costs including an estimated 15% for land and soft costs
-total_construction_cost = num_units * construction_cost_per_unit
-total_project_cost = total_construction_cost * 1.15  
+# --- CACHED FINANCIAL ENGINE (PHASE 2 OPTIMIZATION) ---
+@st.cache_data(show_spinner=False)
+def run_underwriting_engine(units, cost_per_unit, rent, opex, vacancy, equity_pct):
+    """
+    Cached financial modeling block to prevent UI lag during live slider adjustments.
+    """
+    total_construction_cost = units * cost_per_unit
+    total_project_cost = total_construction_cost * 1.15  
 
-required_equity = total_project_cost * (equity_target / 100)
-required_debt = total_project_cost - required_equity
+    required_equity = total_project_cost * (equity_pct / 100)
+    required_debt = total_project_cost - required_equity
 
-gross_annual_rent = num_units * monthly_rent * 12
-effective_gross_income = gross_annual_rent * (1 - (vacancy_rate / 100))
-net_operating_income = effective_gross_income * (1 - (opex_ratio / 100))
+    gross_annual_rent = units * rent * 12
+    effective_gross_income = gross_annual_rent * (1 - (vacancy / 100))
+    net_operating_income = effective_gross_income * (1 - (opex / 100))
 
-yield_on_cost = (net_operating_income / total_project_cost) * 100 if total_project_cost > 0 else 0
+    yield_on_cost = (net_operating_income / total_project_cost) * 100 if total_project_cost > 0 else 0
+
+    years = list(range(1, 11))
+    cash_flows = [net_operating_income * ((1.03) ** (year - 1)) for year in years]
+    cf_df = pd.DataFrame({
+        "Year": years,
+        "Projected NOI": cash_flows
+    })
+
+    return total_project_cost, required_equity, required_debt, net_operating_income, yield_on_cost, cash_flows, cf_df
+
+# Execute calculations via cached function
+total_project_cost, required_equity, required_debt, net_operating_income, yield_on_cost, cash_flows, cf_df = run_underwriting_engine(
+    num_units, construction_cost_per_unit, monthly_rent, opex_ratio, vacancy_rate, equity_target
+)
 
 # --- LIVE METRICS & CHARTS (RIGHT COLUMN) ---
 with col2:
@@ -61,22 +79,12 @@ with col2:
             "Source": ["Equity", "Debt"],
             "Amount": [required_equity, required_debt]
         })
-        # Plotting the capital stack
         st.bar_chart(stack_data.set_index("Source"), color="#2b6cb0")
         
     # Cash Flow Projections (10 Year)
     with chart_col2:
         st.subheader("10-Year NOI Projection")
         st.caption("Assuming 3% Annual Rent Growth")
-        years = list(range(1, 11))
-        
-        # Calculate compounded NOI for 10 years
-        cash_flows = [net_operating_income * ((1.03) ** (year - 1)) for year in years]
-        cf_df = pd.DataFrame({
-            "Year": years,
-            "Projected NOI": cash_flows
-        })
-        
         st.line_chart(cf_df.set_index("Year"), color="#2f855a")
         
     st.divider()
