@@ -4,6 +4,22 @@ import base64
 from core_backend import auto_backup_db, init_db, inject_custom_theme
 from db_ops import get_library_state  
 
+# ==========================================
+# 🔒 FORCE HTTPS SECURITY REDIRECT
+# ==========================================
+try:
+    host = st.context.headers.get("Host", "")
+    if "portal.wickboldtcapital.com" in host:
+        proto = st.context.headers.get("X-Forwarded-Proto", "https")
+        if proto == "http":
+            st.markdown(
+                '<meta http-equiv="refresh" content="0;url=https://portal.wickboldtcapital.com/">',
+                unsafe_allow_html=True
+            )
+            st.stop()
+except Exception:
+    pass
+
 # --- CONFIG & SETUP ---
 st.set_page_config(
     page_title="Wickboldt Capital - Development Portal",
