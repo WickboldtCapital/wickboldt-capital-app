@@ -1,4 +1,5 @@
 import io
+import json
 import streamlit as st
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
@@ -12,8 +13,8 @@ def get_workspace_services():
         'https://www.googleapis.com/auth/documents'
     ]
     
-    # Load credentials directly from Streamlit secrets
-    creds_dict = dict(st.secrets["gcp_service_account"])
+    # Safely load the raw JSON string from Streamlit secrets or Railway Env Vars
+    creds_dict = json.loads(st.secrets["GCP_JSON"])
     
     creds = Credentials.from_service_account_info(
         creds_dict, 
