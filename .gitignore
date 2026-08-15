@@ -1,8 +1,16 @@
-credentials.json
+# Python & Environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.env
+
+# Local Databases & Backups
 *.db
 backups/
-__pycache__/
+
+# Google Cloud & Security Credentials
+credentials.json
+*.json
 .streamlit/secrets.toml
-.steamlit/
-.streamlit/
-.streamlit/
