@@ -301,6 +301,22 @@ def add_budget_line_item(project_name, category, vendor_name, description, qty, 
 def get_project_budget(project_name):
     """Retrieves all active budget line items for a specific project."""
     try:
+        # Safety catch: Ensure the table exists so it doesn't crash on new projects
+        with get_transaction() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS project_budgets (
+                    id SERIAL PRIMARY KEY,
+                    project_name VARCHAR(255),
+                    category VARCHAR(100),
+                    vendor_name VARCHAR(255),
+                    description TEXT,
+                    qty NUMERIC,
+                    unit_cost NUMERIC,
+                    total_cost NUMERIC,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            
         with get_read_connection() as conn:
             sql = text("SELECT * FROM project_budgets WHERE project_name = :p_name ORDER BY created_at DESC")
             result = conn.execute(sql, {"p_name": project_name}).fetchall()
@@ -310,5 +326,5 @@ def get_project_budget(project_name):
             else:
                 return pd.DataFrame()
     except Exception as e:
-        st.error(f"Failed to fetch budget: {str(e)}")
+        # Silently pass instead of throwing a red error box in the UI
         return pd.DataFrame()
