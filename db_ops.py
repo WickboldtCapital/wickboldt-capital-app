@@ -194,7 +194,7 @@ def delete_lms_category(cat_id):
 def get_lms_chapters():
     with get_read_connection() as conn: return pd.read_sql(text("SELECT ch.*, c.title as category_title FROM lms_chapters ch JOIN lms_categories c ON ch.category_id = c.id ORDER BY c.sort_order ASC, ch.sort_order ASC, ch.title ASC"), conn)
 def add_lms_chapter(cat_id, title, desc, sort):
-    with get_transaction() as conn: conn.execute(text("INSERT INTO lms_chapters (category_id, title, description, sort_order) VALUES (:c, :t, :d, :s)"), {"c": cat_id, "t": title, "d": desc, "s": sort})
+    with get_transaction() as conn: conn.execute(text("INSERT INTO lms_chapters (category_id, title, description, sort_order) VALUES (:c, :t, :d, :s)"), {"c": cat_id, "t": title, "d": desc, "sort": sort})
 def delete_lms_chapter(chap_id):
     with get_transaction() as conn: conn.execute(text("DELETE FROM lms_chapters WHERE id=:id"), {"id": chap_id})
 
@@ -224,3 +224,57 @@ def get_user_progress(email, table_name, column_name):
     with get_read_connection() as conn: return [r[0] for r in conn.execute(text(f"SELECT {column_name} FROM {table_name} WHERE user_email = :e"), {"e": email}).fetchall()]
 def mark_progress(email, table_name, column_name, record_id):
     with get_transaction() as conn: conn.execute(text(f"INSERT INTO {table_name} (user_email, {column_name}) VALUES (:e, :id)"), {"e": email, "id": record_id})
+
+# ==========================================
+# 💰 PROFORMA & BUDGET INGESTION ENGINE
+# ==========================================
+def add_budget_line_item(project_name, category, vendor_name, description, qty, unit_cost, total_cost):
+    """Inserts an AI-extracted bid line item into the Supabase database."""
+    try:
+        with get_transaction() as conn:
+            # Ensure the budget table exists
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS project_budgets (
+                    id SERIAL PRIMARY KEY,
+                    project_name VARCHAR(255),
+                    category VARCHAR(100),
+                    vendor_name VARCHAR(255),
+                    description TEXT,
+                    qty NUMERIC,
+                    unit_cost NUMERIC,
+                    total_cost NUMERIC,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            
+            # Insert the parsed line item
+            conn.execute(text("""
+                INSERT INTO project_budgets (project_name, category, vendor_name, description, qty, unit_cost, total_cost)
+                VALUES (:project_name, :category, :vendor_name, :description, :qty, :unit_cost, :total_cost)
+            """), {
+                "project_name": project_name,
+                "category": category,
+                "vendor_name": vendor_name,
+                "description": description,
+                "qty": float(qty),
+                "unit_cost": float(unit_cost),
+                "total_cost": float(total_cost)
+            })
+        return True, "Line item successfully saved to budget."
+    except Exception as e:
+        return False, f"Database error: {str(e)}"
+
+def get_project_budget(project_name):
+    """Retrieves all active budget line items for a specific project."""
+    try:
+        with get_read_connection() as conn:
+            sql = text("SELECT * FROM project_budgets WHERE project_name = :p_name ORDER BY created_at DESC")
+            result = conn.execute(sql, {"p_name": project_name}).fetchall()
+            
+            if result:
+                return pd.DataFrame(result)
+            else:
+                return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Failed to fetch budget: {str(e)}")
+        return pd.DataFrame()
