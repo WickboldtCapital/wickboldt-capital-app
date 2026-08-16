@@ -8,11 +8,30 @@ from db_ops import get_library_state
 # ==========================================
 # 🛑 INITIALIZATION & SECURITY GATES
 # ==========================================
+# FIX: Set default state to "collapsed" so the grey box doesn't draw on initial page load
 st.set_page_config(
     page_title="Wickboldt Capital - Development Portal",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed", 
 )
+
+# --- SESSION STATE INITIALIZATION (Moved to top for instant CSS evaluation) ---
+if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
+if "active_project" not in st.session_state: st.session_state["active_project"] = None
+if "email" not in st.session_state: st.session_state["email"] = "steve.wickboldt.jr@gmail.com"
+if "role" not in st.session_state: st.session_state["role"] = "Admin"
+
+# ==========================================
+# 🚦 IMMEDIATE ANTI-FLASH CSS INJECTION
+# ==========================================
+if not st.session_state["logged_in"]:
+    # Forcefully hide the sidebar container and the toggle button instantly
+    st.markdown("""
+        <style>
+            [data-testid="stSidebar"] { display: none !important; width: 0px !important; }
+            [data-testid="collapsedControl"] { display: none !important; }
+        </style>
+    """, unsafe_allow_html=True)
 
 # Force HTTPS
 try:
@@ -58,12 +77,6 @@ def apply_custom_overrides(svg_path):
 apply_custom_overrides("assets/logo.svg")
 inject_custom_theme()
 
-# --- SESSION STATE INITIALIZATION ---
-if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
-if "active_project" not in st.session_state: st.session_state["active_project"] = None
-if "email" not in st.session_state: st.session_state["email"] = "steve.wickboldt.jr@gmail.com"
-if "role" not in st.session_state: st.session_state["role"] = "Admin"
-
 # OVERRIDE: Force master email to always be Admin
 if st.session_state.get("email") == "steve.wickboldt.jr@gmail.com":
     st.session_state["role"] = "Admin"
@@ -84,17 +97,9 @@ if "view_doc" in st.query_params:
     st.stop()
 
 # ==========================================
-# 🚦 AUTHENTICATION GATING (ANTI-FLASH CSS)
+# 🚦 AUTHENTICATION GATING (LOGIN SCREEN)
 # ==========================================
 if not st.session_state["logged_in"]:
-    # Forcefully hide the sidebar container and the toggle button so it cannot flash
-    st.markdown("""
-        <style>
-            [data-testid="stSidebar"] { display: none !important; }
-            [data-testid="collapsedControl"] { display: none !important; }
-        </style>
-    """, unsafe_allow_html=True)
-    
     pg = st.navigation([st.Page("pages/login.py", title="Sign In", icon="🔒")], position="hidden")
     pg.run()
     st.stop() # Force execution to halt here
