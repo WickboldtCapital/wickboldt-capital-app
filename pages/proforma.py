@@ -1,9 +1,23 @@
 import streamlit as st
 import pandas as pd
 from pdf_ops import generate_proforma_pdf
+from db_ops import get_project_budget
 
 st.title("Dynamic Scenario Modeling & Proforma 📈")
-st.markdown("Stress-test your build-to-rent underwriting with live variables. Adjust the parameters to instantly recalculate the capital stack and return profile.")
+st.markdown("Stress-test your build-to-rent underwriting with live variables. Hard costs automatically sync with AI-ingested contractor bids and materials.")
+
+# Ensure we have an active project to pull the budget from
+active_project = st.session_state.get("active_project")
+if not active_project:
+    st.warning("⚠️ No active project selected. Please select a project from the sidebar.")
+    st.stop()
+
+# --- FETCH INGESTED AI BUDGET DATA ---
+budget_df = get_project_budget(active_project)
+ingested_hard_costs = 0.0
+
+if not budget_df.empty:
+    ingested_hard_costs = float(budget_df["total_cost"].sum())
 
 # --- LAYOUT SETUP ---
 col1, col2 = st.columns([1, 3], gap="large")
@@ -14,7 +28,12 @@ with col1:
     
     st.subheader("Project Scope")
     num_units = st.number_input("Total Units/Lots", min_value=1, max_value=200, value=24)
-    construction_cost_per_unit = st.number_input("Construction Cost per Unit", min_value=50000, max_value=500000, value=150000, step=5000)
+    
+    # Replaced assumed unit cost with actual ingested hard costs + manual base
+    base_hard_costs = st.number_input("Base Hard Costs (Manual Entry) ($)", min_value=0.0, value=150000.0, step=5000.0)
+    st.info(f"**🤖 AI-Ingested Costs:** ${ingested_hard_costs:,.2f}")
+    
+    total_hard_costs = base_hard_costs + ingested_hard_costs
     
     st.subheader("Revenue & Operations")
     monthly_rent = st.number_input("Avg Monthly Rent per Unit", min_value=500, max_value=5000, value=1800, step=50)
@@ -27,12 +46,12 @@ with col1:
 
 # --- CACHED FINANCIAL ENGINE (PHASE 2 OPTIMIZATION) ---
 @st.cache_data(show_spinner=False)
-def run_underwriting_engine(units, cost_per_unit, rent, opex, vacancy, equity_pct):
+def run_underwriting_engine(units, total_hard_costs, rent, opex, vacancy, equity_pct):
     """
     Cached financial modeling block to prevent UI lag during live slider adjustments.
     """
-    total_construction_cost = units * cost_per_unit
-    total_project_cost = total_construction_cost * 1.15  
+    # Assuming land/soft costs are baked into the 15% markup for this simplified engine
+    total_project_cost = total_hard_costs * 1.15  
 
     required_equity = total_project_cost * (equity_pct / 100)
     required_debt = total_project_cost - required_equity
@@ -54,7 +73,7 @@ def run_underwriting_engine(units, cost_per_unit, rent, opex, vacancy, equity_pc
 
 # Execute calculations via cached function
 total_project_cost, required_equity, required_debt, net_operating_income, yield_on_cost, cash_flows, cf_df = run_underwriting_engine(
-    num_units, construction_cost_per_unit, monthly_rent, opex_ratio, vacancy_rate, equity_target
+    num_units, total_hard_costs, monthly_rent, opex_ratio, vacancy_rate, equity_target
 )
 
 # --- LIVE METRICS & CHARTS (RIGHT COLUMN) ---
@@ -92,6 +111,20 @@ with col2:
     # Raw Data Table Export
     with st.expander("View Full Amortization & Raw Data"):
         st.dataframe(cf_df.style.format({"Projected NOI": "${:,.2f}"}), use_container_width=True)
+        
+    st.divider()
+    
+    # AI Budget Breakdown Table
+    st.subheader("AI Budget Breakdown")
+    if not budget_df.empty:
+        st.markdown("These line items were automatically extracted from bids/invoices and are actively driving your total hard costs.")
+        st.dataframe(
+            budget_df[["created_at", "category", "vendor_name", "description", "qty", "unit_cost", "total_cost"]], 
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("No AI-ingested budget items found for this project. Upload bids via the AI Bid Ingestion tool to automatically populate this section.")
         
     st.divider()
     
