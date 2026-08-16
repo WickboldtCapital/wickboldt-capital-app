@@ -165,6 +165,7 @@ else:
             st.Page("pages/architecture.py", title="Master Architecture", icon="📐"),
         ],
         "Engineering Disciplines": [
+            st.Page("pages/eng_foundation.py", title="Foundation & Concrete", icon="🧱"),
             st.Page("pages/eng_hvac.py", title="HVAC (ACCA)", icon="❄️"),
             st.Page("pages/eng_plumbing.py", title="Plumbing & Water", icon="🚰"),
             st.Page("pages/eng_electrical.py", title="Electrical & Power", icon="⚡"),
