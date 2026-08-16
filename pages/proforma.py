@@ -9,6 +9,7 @@ st.set_page_config(page_title="Dynamic Scenario Modeling & Proforma", layout="wi
 
 st.title("Dynamic Scenario Modeling & Proforma 📈")
 st.markdown("Stress-test your build-to-rent underwriting with live variables. Hard costs automatically sync with your Estimator module and AI-ingested bids.")
+st.divider()
 
 # Ensure we have an active project to pull the budget from
 active_project = st.session_state.get("active_project")
@@ -20,7 +21,6 @@ DB_FILE = "wickboldt_projects.db"
 
 # --- DB HELPERS ---
 def init_local_db():
-    """Safely ensures the local JSON state table exists before querying."""
     conn = sqlite3.connect(DB_FILE)
     conn.execute("CREATE TABLE IF NOT EXISTS projects (project_name TEXT PRIMARY KEY, project_data TEXT)")
     conn.commit()
@@ -43,7 +43,6 @@ def auto_save(key):
     current_state = json.loads(row[0]) if row and row[0] else {}
     current_state[key] = val
     
-    # Use UPSERT to handle completely new projects smoothly
     conn.execute("""
         INSERT INTO projects (project_name, project_data) 
         VALUES (?, ?) 
@@ -55,9 +54,13 @@ def auto_save(key):
 db_state = get_db_state()
 budget_df = get_project_budget(active_project)
 
+# --- Aggregate Ingested AI Actuals ---
 ingested_hard_costs = 0.0
+actuals_by_category = {}
 if not budget_df.empty:
     ingested_hard_costs = float(budget_df["total_cost"].sum())
+    # Group ingested costs by category for the Variance Report
+    actuals_by_category = budget_df.groupby('category')['total_cost'].sum().to_dict()
 
 # --- Reconstruct Direct Cost Baseline from Estimator ---
 sq_ft = float(db_state.get("est_sq_ft", 1150.0))
@@ -145,10 +148,7 @@ def run_underwriting_engine(units, total_cost, rent, opex, vacancy, equity_pct):
 
     years = list(range(1, 11))
     cash_flows = [net_operating_income * ((1.03) ** (year - 1)) for year in years]
-    cf_df = pd.DataFrame({
-        "Year": years,
-        "Projected NOI": cash_flows
-    })
+    cf_df = pd.DataFrame({"Year": years, "Projected NOI": cash_flows})
 
     return required_equity, required_debt, net_operating_income, yield_on_cost, cash_flows, cf_df
 
@@ -189,23 +189,52 @@ with col2:
         
     st.divider()
     
+    # ==========================================
+    # ENTERPRISE UPGRADE: VARIANCE REPORTING
+    # ==========================================
+    st.subheader("📊 Hard Cost Variance Report (Est. vs Actuals)")
+    st.markdown("Tracks your baseline estimates against real-time actuals ingested via the AI module.")
+    
+    categories = [
+        "Site Work, Foundation & Civil Grading",
+        "Framing, Exterior Shell & Roof",
+        "MEP Rough-Ins",
+        "Interior Finishes & Drywall",
+        "Build Contingency"
+    ]
+    
+    # Map the total estimated direct costs roughly across categories for baseline
+    base_split = est_direct / len(categories) if est_direct > 0 else 0
+    
+    var_data = []
+    for cat in categories:
+        act = actuals_by_category.get(cat, 0.0)
+        var = base_split - act
+        var_data.append({
+            "Category": cat,
+            "Baseline Est.": base_split,
+            "Ingested Actuals": act,
+            "Remaining Budget": var,
+            "Status": "🔴 Over Budget" if var < 0 else "🟢 On Track"
+        })
+        
+    var_df = pd.DataFrame(var_data)
+    st.dataframe(
+        var_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Baseline Est.": st.column_config.NumberColumn("Baseline Est. ($)", format="$%.2f"),
+            "Ingested Actuals": st.column_config.NumberColumn("Ingested Actuals ($)", format="$%.2f"),
+            "Remaining Budget": st.column_config.NumberColumn("Remaining Budget ($)", format="$%.2f")
+        }
+    )
+    
+    st.divider()
+    
     # Raw Data Table Export
     with st.expander("View Full Amortization & Raw Data"):
         st.dataframe(cf_df.style.format({"Projected NOI": "${:,.2f}"}), use_container_width=True)
-        
-    st.divider()
-    
-    # AI Budget Breakdown Table
-    st.subheader("AI Budget Breakdown")
-    if not budget_df.empty:
-        st.markdown("These line items were automatically extracted from bids/invoices and are actively driving your total hard costs.")
-        st.dataframe(
-            budget_df[["created_at", "category", "vendor_name", "description", "qty", "unit_cost", "total_cost"]], 
-            use_container_width=True,
-            hide_index=True
-        )
-    else:
-        st.info("No AI-ingested budget items found for this project. Upload bids via the AI Bid Ingestion tool to automatically populate this section.")
         
     st.divider()
     
