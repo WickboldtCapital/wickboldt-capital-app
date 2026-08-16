@@ -46,21 +46,26 @@ for _, proj in projects_df.iterrows():
     
     # 2. Budget Metrics
     b_df = get_project_budget(p_name)
-    p_budget = b_df['total_cost'].sum() if not b_df.empty else 0.0
+    if not b_df.empty and 'total_cost' in b_df.columns:
+        p_budget = b_df['total_cost'].sum()
+    else:
+        p_budget = 0.0
     total_budget += p_budget
     
-    # 3. Safety & QC Metrics (Extracted from JSON state)
-    conn = sqlite3.connect("wickboldt_projects.db")
-    row = conn.execute("SELECT project_data FROM projects WHERE project_name=?", (p_name,)).fetchone()
-    conn.close()
-    
+    # 3. Safety & QC Metrics (Safely Extracted from JSON state)
     toolbox_count = 0
-    if row and row[0]:
-        try:
-            p_data = json.loads(row[0])
-            toolbox_count = len(p_data.get("toolbox_talks", []))
-        except:
-            pass
+    try:
+        conn = sqlite3.connect("wickboldt_projects.db")
+        # Check if table exists before querying to prevent crashes
+        table_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'").fetchone()
+        if table_check:
+            row = conn.execute("SELECT project_data FROM projects WHERE project_name=?", (p_name,)).fetchone()
+            if row and row[0]:
+                p_data = json.loads(row[0])
+                toolbox_count = len(p_data.get("toolbox_talks", []))
+        conn.close()
+    except Exception:
+        pass
             
     # Append to Master List
     portfolio_data.append({
