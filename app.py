@@ -157,6 +157,7 @@ else:
         "Financials & Underwriting": [
             st.Page("pages/proforma.py", title="Proforma & Underwriting", icon="📈"),
             st.Page("pages/estimation.py", title="Cost Estimation", icon="🧮"),
+            st.Page("pages/deal_packet.py", title="Deal Packet Generator", icon="📄"),
             st.Page("pages/bid_intake.py", title="AI Bid Ingestion", icon="🤖"),
             st.Page("pages/forecasting.py", title="Cash Flow Forecasting", icon="🔮"),
             st.Page("pages/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"),
