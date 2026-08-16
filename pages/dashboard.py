@@ -2,25 +2,30 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import json
-from db_ops import get_all_projects_df, get_project_milestones, get_project_budget
+from db_ops import get_user_projects_df, get_project_milestones, get_project_budget
 
 st.set_page_config(page_title="Executive Dashboard", layout="wide")
 
 # --- SECURITY GUARD ---
 role = st.session_state.get("role")
-if not role:
+user_email = st.session_state.get("email")
+
+if not role or not user_email:
     st.warning("⚠️ Access Restricted: Please log in to view the dashboard.")
     st.stop()
 
 st.title("📊 Executive Command Center")
-st.markdown("High-level portfolio overview of budgets, schedules, and compliance across all Wickboldt Capital developments.")
+if role == "Admin":
+    st.markdown("High-level portfolio overview of **all active developments** across Wickboldt Capital.")
+else:
+    st.markdown(f"High-level portfolio overview of **your active developments** (`{user_email}`).")
 st.divider()
 
-# Fetch all projects
-projects_df = get_all_projects_df()
+# Fetch projects filtered by user access level
+projects_df = get_user_projects_df(user_email, role)
 
 if projects_df.empty:
-    st.info("No active projects found. Create a new development in the Project Control tab.")
+    st.info("No active projects found for your account. Create a new development in the Project Control tab.")
     st.stop()
 
 # Initialize Portfolio Aggregates
@@ -56,7 +61,6 @@ for _, proj in projects_df.iterrows():
     toolbox_count = 0
     try:
         conn = sqlite3.connect("wickboldt_projects.db")
-        # Check if table exists before querying to prevent crashes
         table_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'").fetchone()
         if table_check:
             row = conn.execute("SELECT project_data FROM projects WHERE project_name=?", (p_name,)).fetchone()
@@ -96,6 +100,5 @@ st.divider()
 # PORTFOLIO BREAKDOWN TABLE
 # ==========================================
 st.subheader("🏢 Master Portfolio Breakdown")
-# Convert to DataFrame and render a clean, interactive table
 portfolio_df = pd.DataFrame(portfolio_data)
 st.dataframe(portfolio_df, use_container_width=True, hide_index=True)
