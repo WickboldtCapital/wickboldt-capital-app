@@ -19,7 +19,15 @@ if not active_project:
 DB_FILE = "wickboldt_projects.db"
 
 # --- DB HELPERS ---
+def init_local_db():
+    """Safely ensures the local JSON state table exists before querying."""
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("CREATE TABLE IF NOT EXISTS projects (project_name TEXT PRIMARY KEY, project_data TEXT)")
+    conn.commit()
+    conn.close()
+
 def get_db_state():
+    init_local_db()
     conn = sqlite3.connect(DB_FILE)
     row = conn.execute("SELECT project_data FROM projects WHERE project_name=?", (active_project,)).fetchone()
     conn.close()
@@ -28,12 +36,19 @@ def get_db_state():
     return {}
 
 def auto_save(key):
+    init_local_db()
     val = st.session_state[key]
     conn = sqlite3.connect(DB_FILE)
     row = conn.execute("SELECT project_data FROM projects WHERE project_name=?", (active_project,)).fetchone()
     current_state = json.loads(row[0]) if row and row[0] else {}
     current_state[key] = val
-    conn.execute("UPDATE projects SET project_data=? WHERE project_name=?", (json.dumps(current_state), active_project))
+    
+    # Use UPSERT to handle completely new projects smoothly
+    conn.execute("""
+        INSERT INTO projects (project_name, project_data) 
+        VALUES (?, ?) 
+        ON CONFLICT(project_name) DO UPDATE SET project_data=excluded.project_data
+    """, (active_project, json.dumps(current_state)))
     conn.commit()
     conn.close()
 
