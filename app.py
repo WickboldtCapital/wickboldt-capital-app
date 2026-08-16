@@ -84,12 +84,20 @@ if "view_doc" in st.query_params:
     st.stop()
 
 # ==========================================
-# 🚦 AUTHENTICATION GATING (NO BLINKING, NO FRONTPAGE)
+# 🚦 AUTHENTICATION GATING (ANTI-FLASH CSS)
 # ==========================================
 if not st.session_state["logged_in"]:
+    # Forcefully hide the sidebar container and the toggle button so it cannot flash
+    st.markdown("""
+        <style>
+            [data-testid="stSidebar"] { display: none !important; }
+            [data-testid="collapsedControl"] { display: none !important; }
+        </style>
+    """, unsafe_allow_html=True)
+    
     pg = st.navigation([st.Page("pages/login.py", title="Sign In", icon="🔒")], position="hidden")
     pg.run()
-    st.stop() # Force execution to halt here if not logged in. Eliminates UI blinking!
+    st.stop() # Force execution to halt here
 
 # ==========================================
 # 📂 PROJECT LOAD GATE
