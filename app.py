@@ -68,8 +68,6 @@ if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 if "active_project" not in st.session_state:
     st.session_state["active_project"] = None
-if "nav_mode" not in st.session_state:
-    st.session_state["nav_mode"] = "home"
 if "email" not in st.session_state:
     st.session_state["email"] = "steve.wickboldt.jr@gmail.com"
 
@@ -95,17 +93,10 @@ if "view_doc" in st.query_params:
     st.stop()
 
 # ==========================================
-# 🚦 DYNAMIC ROUTING
+# 🚦 DYNAMIC ROUTING (LOGIN GATED)
 # ==========================================
-if not st.session_state["logged_in"] and st.session_state["nav_mode"] == "home":
-    pg = st.navigation([st.Page("pages/frontpage.py", title="Home", icon="🏠")], position="hidden")
-    pg.run()
-
-elif not st.session_state["logged_in"] and st.session_state["nav_mode"] == "login":
-    with st.sidebar:
-        if st.button("← Return to Home", use_container_width=True):
-            st.session_state["nav_mode"] = "home"
-            st.rerun()
+if not st.session_state["logged_in"]:
+    # Portal strictly displays the Login page when unauthenticated
     pg = st.navigation([st.Page("pages/login.py", title="Sign In", icon="🔒")], position="hidden")
     pg.run()
 
@@ -117,7 +108,7 @@ elif not st.session_state.get("active_project"):
         if st.button("🚪 Sign Out", use_container_width=True):
             st.session_state["logged_in"] = False
             st.session_state["role"] = "viewer"
-            st.session_state["nav_mode"] = "home"
+            st.session_state["active_project"] = None
             st.rerun()
         st.markdown("---")
         st.warning("⚠️ No active project loaded. Select or create one below to unlock the workspace.")
@@ -144,7 +135,6 @@ else:
                 st.session_state["logged_in"] = False
                 st.session_state["active_project"] = None
                 st.session_state["role"] = "viewer"
-                st.session_state["nav_mode"] = "home"
                 st.rerun()
         st.markdown("---")
 
