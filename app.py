@@ -8,27 +8,30 @@ from db_ops import get_library_state
 # ==========================================
 # 🛑 INITIALIZATION & SECURITY GATES
 # ==========================================
-# FIX: Set default state to "collapsed" so the grey box doesn't draw on initial page load
 st.set_page_config(
     page_title="Wickboldt Capital - Development Portal",
     layout="wide",
-    initial_sidebar_state="collapsed", 
+    initial_sidebar_state="expanded", # Keep expanded to prevent sliding animation
 )
 
-# --- SESSION STATE INITIALIZATION (Moved to top for instant CSS evaluation) ---
+# --- SESSION STATE INITIALIZATION ---
 if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
 if "active_project" not in st.session_state: st.session_state["active_project"] = None
 if "email" not in st.session_state: st.session_state["email"] = "steve.wickboldt.jr@gmail.com"
 if "role" not in st.session_state: st.session_state["role"] = "Admin"
 
+# OVERRIDE: Force master email to always be Admin
+if st.session_state.get("email") == "steve.wickboldt.jr@gmail.com":
+    st.session_state["role"] = "Admin"
+
 # ==========================================
 # 🚦 IMMEDIATE ANTI-FLASH CSS INJECTION
 # ==========================================
+# This MUST run before anything else so the browser hides the sidebar instantly
 if not st.session_state["logged_in"]:
-    # Forcefully hide the sidebar container and the toggle button instantly
     st.markdown("""
         <style>
-            [data-testid="stSidebar"] { display: none !important; width: 0px !important; }
+            [data-testid="stSidebar"] { display: none !important; }
             [data-testid="collapsedControl"] { display: none !important; }
         </style>
     """, unsafe_allow_html=True)
@@ -50,7 +53,7 @@ if "system_initialized" not in st.session_state:
     auto_backup_db()
     st.session_state["system_initialized"] = True
 
-# Logo Injector (With crash protection)
+# Logo Injector
 def apply_custom_overrides(svg_path):
     if not os.path.exists(svg_path): return
     try:
@@ -77,10 +80,6 @@ def apply_custom_overrides(svg_path):
 apply_custom_overrides("assets/logo.svg")
 inject_custom_theme()
 
-# OVERRIDE: Force master email to always be Admin
-if st.session_state.get("email") == "steve.wickboldt.jr@gmail.com":
-    st.session_state["role"] = "Admin"
-
 # ==========================================
 # 📄 DEDICATED DOCUMENT VIEWER ROUTE
 # ==========================================
@@ -97,20 +96,19 @@ if "view_doc" in st.query_params:
     st.stop()
 
 # ==========================================
-# 🚦 AUTHENTICATION GATING (LOGIN SCREEN)
+# 🚦 MASTER ROUTING ENGINE
 # ==========================================
+
+# 1. NOT LOGGED IN -> Direct to Login, hide sidebar
 if not st.session_state["logged_in"]:
     pg = st.navigation([st.Page("pages/login.py", title="Sign In", icon="🔒")], position="hidden")
     pg.run()
-    st.stop() # Force execution to halt here
 
-# ==========================================
-# 📂 PROJECT LOAD GATE
-# ==========================================
-if not st.session_state.get("active_project"):
+# 2. LOGGED IN, BUT NO PROJECT -> Show Control Page
+elif not st.session_state.get("active_project"):
     with st.sidebar:
         st.markdown("### 🏗️ Wickboldt Capital")
-        st.caption(f"**User:** `{st.session_state.get('email', 'steve.wickboldt.jr@gmail.com')}`")
+        st.caption(f"**User:** `{st.session_state.get('email', '')}`")
         st.caption(f"**Role:** `{st.session_state.get('role', 'Admin').capitalize()}`")
         if st.button("🚪 Sign Out", use_container_width=True):
             st.session_state["logged_in"] = False
@@ -121,70 +119,67 @@ if not st.session_state.get("active_project"):
         
     pg = st.navigation([st.Page("pages/control.py", title="Project Control", icon="📁")])
     pg.run()
-    st.stop()
 
-# ==========================================
-# 🚀 UNLOCKED WORKSPACE
-# ==========================================
-with st.sidebar:
-    st.markdown("### 🏗️ Wickboldt Capital")
-    st.markdown(f"👤 `{st.session_state.get('email', 'steve.wickboldt.jr@gmail.com')}`")
-    st.caption(f"🛡️ Role: {st.session_state.get('role', 'Admin').capitalize()}")
-    st.markdown("---")
-    st.success(f"📁 **Active Project:**\n{st.session_state.get('active_project', 'None')}")
-    
-    col_sw, col_out = st.columns(2)
-    with col_sw:
-        if st.button("🔄 Switch", use_container_width=True, help="Switch Project"):
-            st.session_state["active_project"] = None
-            st.rerun()
-    with col_out:
-        if st.button("🚪 Out", use_container_width=True, help="Sign Out"):
-            st.session_state["logged_in"] = False
-            st.session_state["active_project"] = None
-            st.session_state["role"] = "viewer"
-            st.rerun()
-    st.markdown("---")
+# 3. UNLOCKED ENTERPRISE WORKSPACE
+else:
+    with st.sidebar:
+        st.markdown("### 🏗️ Wickboldt Capital")
+        st.markdown(f"👤 `{st.session_state.get('email', '')}`")
+        st.caption(f"🛡️ Role: {st.session_state.get('role', 'Admin').capitalize()}")
+        st.markdown("---")
+        st.success(f"📁 **Active Project:**\n{st.session_state.get('active_project', 'None')}")
+        
+        col_sw, col_out = st.columns(2)
+        with col_sw:
+            if st.button("🔄 Switch", use_container_width=True, help="Switch Project"):
+                st.session_state["active_project"] = None
+                st.rerun()
+        with col_out:
+            if st.button("🚪 Out", use_container_width=True, help="Sign Out"):
+                st.session_state["logged_in"] = False
+                st.session_state["active_project"] = None
+                st.session_state["role"] = "viewer"
+                st.rerun()
+        st.markdown("---")
 
-# --- UNLOCKED ENTERPRISE WORKSPACE NAVIGATION (Grouped) ---
-workspace_pages = {
-    "Project Management": [
-        st.Page("pages/dashboard.py", title="Executive Dashboard", icon="📊", default=True),
-        st.Page("pages/scheduling.py", title="Scheduling & Milestones", icon="🗓️"),
-    ],
-    "Financials & Underwriting": [
-        st.Page("pages/proforma.py", title="Proforma & Underwriting", icon="📈"),
-        st.Page("pages/estimation.py", title="Cost Estimation", icon="🧮"),
-        st.Page("pages/deal_packet.py", title="Deal Packet Generator", icon="📄"),
-        st.Page("pages/bid_intake.py", title="AI Bid Ingestion", icon="🤖"),
-        st.Page("pages/forecasting.py", title="Cash Flow Forecasting", icon="🔮"),
-        st.Page("pages/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"),
-    ],
-    "Architecture & Specs": [
-        st.Page("pages/architecture.py", title="Master Architecture", icon="📐"),
-    ],
-    "Engineering Disciplines": [
-        st.Page("pages/eng_foundation.py", title="Foundation & Concrete", icon="🧱"),
-        st.Page("pages/eng_framing.py", title="Structural Framing", icon="🪵"),
-        st.Page("pages/eng_hvac.py", title="HVAC (ACCA)", icon="❄️"),
-        st.Page("pages/eng_plumbing.py", title="Plumbing & Water", icon="🚰"),
-        st.Page("pages/eng_electrical.py", title="Electrical & Power", icon="⚡"),
-    ],
-    "Operations & Execution": [
-        st.Page("pages/quality.py", title="Quality Control", icon="✅"),
-        st.Page("pages/safety.py", title="Jobsite Safety", icon="🦺"),
-        st.Page("pages/training.py", title="Training & SOPs", icon="📚"),
-    ],
-    "Business & Governance": [
-        st.Page("pages/documents.py", title="Secure Document Library", icon="🔒"),
-        st.Page("pages/diligence.py", title="Due Diligence", icon="📑"),
-        st.Page("pages/marketing.py", title="Marketing Library", icon="📢"),
-        st.Page("pages/governance.py", title="Master Company Library", icon="🏢"),
-        st.Page("pages/roadmap.py", title="Enterprise Roadmap", icon="🚀"),
-        st.Page("pages/user_management.py", title="User Management", icon="🔐"),
-        st.Page("pages/settings.py", title="Account Settings", icon="⚙️"),
-    ]
-}
+    workspace_pages = {
+        "Project Management": [
+            st.Page("pages/dashboard.py", title="Executive Dashboard", icon="📊", default=True),
+            st.Page("pages/scheduling.py", title="Scheduling & Milestones", icon="🗓️"),
+        ],
+        "Financials & Underwriting": [
+            st.Page("pages/proforma.py", title="Proforma & Underwriting", icon="📈"),
+            st.Page("pages/estimation.py", title="Cost Estimation", icon="🧮"),
+            st.Page("pages/deal_packet.py", title="Deal Packet Generator", icon="📄"),
+            st.Page("pages/bid_intake.py", title="AI Bid Ingestion", icon="🤖"),
+            st.Page("pages/forecasting.py", title="Cash Flow Forecasting", icon="🔮"),
+            st.Page("pages/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"),
+        ],
+        "Architecture & Specs": [
+            st.Page("pages/architecture.py", title="Master Architecture", icon="📐"),
+        ],
+        "Engineering Disciplines": [
+            st.Page("pages/eng_foundation.py", title="Foundation & Concrete", icon="🧱"),
+            st.Page("pages/eng_framing.py", title="Structural Framing", icon="🪵"),
+            st.Page("pages/eng_hvac.py", title="HVAC (ACCA)", icon="❄️"),
+            st.Page("pages/eng_plumbing.py", title="Plumbing & Water", icon="🚰"),
+            st.Page("pages/eng_electrical.py", title="Electrical & Power", icon="⚡"),
+        ],
+        "Operations & Execution": [
+            st.Page("pages/quality.py", title="Quality Control", icon="✅"),
+            st.Page("pages/safety.py", title="Jobsite Safety", icon="🦺"),
+            st.Page("pages/training.py", title="Training & SOPs", icon="📚"),
+        ],
+        "Business & Governance": [
+            st.Page("pages/documents.py", title="Secure Document Library", icon="🔒"),
+            st.Page("pages/diligence.py", title="Due Diligence", icon="📑"),
+            st.Page("pages/marketing.py", title="Marketing Library", icon="📢"),
+            st.Page("pages/governance.py", title="Master Company Library", icon="🏢"),
+            st.Page("pages/roadmap.py", title="Enterprise Roadmap", icon="🚀"),
+            st.Page("pages/user_management.py", title="User Management", icon="🔐"),
+            st.Page("pages/settings.py", title="Account Settings", icon="⚙️"),
+        ]
+    }
 
-pg = st.navigation(workspace_pages)
-pg.run()
+    pg = st.navigation(workspace_pages)
+    pg.run()
