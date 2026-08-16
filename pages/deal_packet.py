@@ -1,9 +1,7 @@
 import streamlit as st
 import sqlite3
 import json
-import tempfile
-import os
-from weasyprint import HTML
+from fpdf import FPDF
 
 st.set_page_config(page_title="Investment Deal Packet", layout="wide")
 
@@ -16,12 +14,15 @@ if not active_project:
 # Fetch project state from database
 DB_FILE = "wickboldt_projects.db"
 def get_db_state():
-    conn = sqlite3.connect(DB_FILE)
-    row = conn.execute("SELECT project_data FROM projects WHERE project_name=?", (active_project,)).fetchone()
-    conn.close()
-    if row and row[0]:
-        return json.loads(row[0])
-    return {}
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        row = conn.execute("SELECT project_data FROM projects WHERE project_name=?", (active_project,)).fetchone()
+        conn.close()
+        if row and row[0]:
+            return json.loads(row[0])
+        return {}
+    except Exception:
+        return {}
 
 db_state = get_db_state()
 
@@ -43,187 +44,118 @@ with col2:
 
 st.divider()
 
+# --- NEW FEATURE: CAPITAL STACK CALCULATOR ---
+st.subheader("🏦 Capital Stack Requirements")
+st.markdown("Dynamically calculate the required equity and debt facility based on the target appraisal.")
+ltv_pct = st.slider("Target Loan-to-Value (LTV) %", min_value=50, max_value=90, value=75, step=1)
+
+loan_amount = appraisal_val * (ltv_pct / 100.0)
+required_equity = appraisal_val - loan_amount
+
+c1, c2 = st.columns(2)
+c1.metric("Projected Debt Facility (Loan)", f"${loan_amount:,.2f}")
+c2.metric("Required Cash / Equity", f"${required_equity:,.2f}")
+st.divider()
+
+# --- SAFE PURE-PYTHON PDF GENERATOR (FPDF2) ---
+class DealPacketPDF(FPDF):
+    def header(self):
+        # Header with Wickboldt Brand Colors
+        self.set_font("helvetica", "B", 16)
+        self.set_text_color(26, 54, 93) # Navy blue
+        self.cell(0, 10, "WICKBOLDT CAPITAL", border=False, ln=1, align="C")
+        self.set_font("helvetica", "I", 10)
+        self.set_text_color(212, 175, 55) # Gold
+        self.cell(0, 5, "Today's Foundation. Tomorrow's Legacy.", border=False, ln=1, align="C")
+        self.ln(10)
+
+    def footer(self):
+        # Footer
+        self.set_y(-15)
+        self.set_font("helvetica", "I", 8)
+        self.set_text_color(136, 136, 136)
+        self.cell(0, 10, f"Confidential Investment Packet | Page {self.page_no()}", align="C")
+
+def compile_pdf():
+    pdf = DealPacketPDF()
+    pdf.add_page()
+    
+    # --- COVER PAGE ---
+    pdf.set_y(60)
+    pdf.set_font("helvetica", "B", 24)
+    pdf.set_text_color(26, 54, 93)
+    pdf.cell(0, 15, packet_title, ln=1, align="C")
+    
+    pdf.set_font("helvetica", "", 16)
+    pdf.set_text_color(74, 85, 104)
+    pdf.cell(0, 10, "Build-to-Rent Asset Offering", ln=1, align="C")
+    pdf.ln(30)
+    
+    # Meta Details Box
+    pdf.set_font("helvetica", "B", 12)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 8, "Project Details:", ln=1, align="C")
+    pdf.set_font("helvetica", "", 12)
+    pdf.cell(0, 8, f"Project Name: {active_project}", ln=1, align="C")
+    pdf.cell(0, 8, f"Living Area: {sq_ft:,.0f} SqFt", ln=1, align="C")
+    pdf.cell(0, 8, f"Target Appraisal: ${appraisal_val:,.2f}", ln=1, align="C")
+    pdf.cell(0, 8, f"Target Yield-on-Cost: {target_yoc}%", ln=1, align="C")
+    
+    pdf.add_page()
+    
+    # --- SECTION 1: EXECUTIVE SUMMARY ---
+    pdf.set_font("helvetica", "B", 16)
+    pdf.set_text_color(26, 54, 93)
+    pdf.cell(0, 10, "1. Executive Summary & Proforma", ln=1)
+    pdf.set_line_width(0.5)
+    pdf.set_draw_color(212, 175, 55) # Gold line
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(5)
+    
+    # Metrics Grid
+    pdf.set_font("helvetica", "B", 12)
+    pdf.set_text_color(0,0,0)
+    pdf.cell(95, 10, f"Appraised Value: ${appraisal_val:,.0f}", border=1, align="C")
+    pdf.cell(95, 10, f"Yield-on-Cost: {target_yoc}%", border=1, ln=1, align="C")
+    pdf.cell(95, 10, f"Monthly Rent: ${monthly_rent:,.0f}", border=1, align="C")
+    pdf.cell(95, 10, f"Gross Rent Multiplier: 10.0x", border=1, ln=1, align="C")
+    pdf.ln(10)
+    
+    # --- SECTION 2: CAPITAL STACK (NEW FEATURE) ---
+    pdf.set_font("helvetica", "B", 16)
+    pdf.set_text_color(26, 54, 93)
+    pdf.cell(0, 10, "2. Capital Stack & Funding Request", ln=1)
+    pdf.set_draw_color(212, 175, 55)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(5)
+    
+    pdf.set_font("helvetica", "", 12)
+    pdf.set_text_color(0,0,0)
+    
+    # Stack breakdown
+    pdf.cell(100, 10, f"Target Loan-to-Value (LTV):", border=0)
+    pdf.cell(90, 10, f"{ltv_pct}%", border=0, ln=1, align="R")
+    
+    pdf.cell(100, 10, f"Projected Debt Facility:", border=0)
+    pdf.cell(90, 10, f"${loan_amount:,.2f}", border=0, ln=1, align="R")
+    
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(100, 10, f"Required Equity / Cash:", border=0)
+    pdf.cell(90, 10, f"${required_equity:,.2f}", border=0, ln=1, align="R")
+    
+    return bytes(pdf.output())
+
+# --- ACTION BUTTON ---
 if st.button("🚀 Generate & Download PDF Deal Packet", type="primary", use_container_width=True):
-    with st.spinner("Compiling WeasyPrint PDF layout..."):
-        
-        # HTML template matching your professional styling
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <style>
-                @page {{
-                    size: A4 portrait;
-                    margin: 15mm 15mm;
-                    background-color: #fcfbf9;
-                    @bottom-right {{
-                        content: "Page " counter(page) " of " counter(pages);
-                        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                        font-size: 8pt;
-                        color: #888;
-                    }}
-                    @bottom-left {{
-                        content: "Wickboldt Capital | Confidential Investment Packet";
-                        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                        font-size: 8pt;
-                        color: #888;
-                    }}
-                }}
-                *, *::before, *::after {{ box-sizing: border-box; }}
-                body {{
-                    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                    color: #2c3e50;
-                    line-height: 1.5;
-                    margin: 0;
-                    padding: 0;
-                    font-size: 10pt;
-                }}
-                .cover {{
-                    height: 260mm;
-                    display: block;
-                    position: relative;
-                    text-align: center;
-                    padding-top: 50mm;
-                }}
-                .cover-badge {{
-                    display: inline-block;
-                    background-color: #1a365d;
-                    color: #d4af37;
-                    font-size: 9pt;
-                    font-weight: bold;
-                    text-transform: uppercase;
-                    letter-spacing: 2px;
-                    padding: 8px 16px;
-                    border-radius: 4px;
-                    margin-bottom: 20px;
-                }}
-                .cover h1 {{
-                    font-size: 26pt;
-                    color: #1a365d;
-                    margin: 0 0 10px 0;
-                    font-weight: 700;
-                }}
-                .cover h2 {{
-                    font-size: 14pt;
-                    color: #4a5568;
-                    margin: 0 0 30px 0;
-                    font-weight: 400;
-                }}
-                .tagline {{
-                    font-style: italic;
-                    color: #d4af37;
-                    font-size: 13pt;
-                    margin-bottom: 50px;
-                }}
-                .cover-meta {{
-                    background-color: #ffffff;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 8px;
-                    padding: 20px;
-                    max-width: 400px;
-                    margin: 0 auto;
-                    text-align: left;
-                }}
-                .cover-meta table {{ width: 100%; border-collapse: collapse; }}
-                .cover-meta td {{ padding: 6px 0; font-size: 9.5pt; }}
-                .cover-meta td.label {{ color: #718096; font-weight: 500; }}
-                .cover-meta td.val {{ color: #1a365d; font-weight: 700; text-align: right; }}
-                
-                .page-break {{ page-break-before: always; }}
-                
-                h2.section-title {{
-                    font-size: 15pt;
-                    color: #1a365d;
-                    border-bottom: 2px solid #d4af37;
-                    padding-bottom: 6px;
-                    margin-top: 0;
-                    margin-bottom: 15px;
-                }}
-                h3 {{ font-size: 11pt; color: #2b6cb0; margin-top: 15px; margin-bottom: 8px; }}
-                
-                .metrics-grid {{ display: table; width: 100%; margin-bottom: 20px; }}
-                .metric-card {{
-                    display: table-cell;
-                    background: #ffffff;
-                    border: 1px solid #e2e8f0;
-                    border-top: 4px solid #1a365d;
-                    border-radius: 6px;
-                    padding: 12px;
-                    text-align: center;
-                    width: 33.33%;
-                }}
-                .metric-val {{ font-size: 15pt; font-weight: bold; color: #1a365d; margin-bottom: 4px; }}
-                .metric-lbl {{ font-size: 8pt; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }}
-                
-                table.data-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #ffffff; font-size: 9pt; }}
-                table.data-table th {{ background-color: #1a365d; color: #ffffff; text-align: left; padding: 8px 10px; }}
-                table.data-table td {{ padding: 8px 10px; border-bottom: 1px solid #e2e8f0; color: #2d3748; }}
-                table.data-table tr:nth-child(even) {{ background-color: #f7fafc; }}
-            </style>
-        </head>
-        <body>
-            <div class="cover">
-                <div class="cover-badge">Wickboldt Capital Portfolio</div>
-                <h1>{packet_title}</h1>
-                <h2>Build-to-Rent Asset Offering</h2>
-                <div class="tagline">Today's Foundation. Tomorrow's Legacy.</div>
-                
-                <div class="cover-meta">
-                    <table>
-                        <tr><td class="label">Project Name:</td><td class="val">{active_project}</td></tr>
-                        <tr><td class="label">Living Area:</td><td class="val">{sq_ft:,.0f} SqFt</td></tr>
-                        <tr><td class="label">Target Appraisal:</td><td class="val">${appraisal_val:,.2f}</td></tr>
-                        <tr><td class="label">Target Yield-on-Cost:</td><td class="val">{target_yoc}% YOC</td></tr>
-                    </table>
-                </div>
-            </div>
-
-            <div class="page-break"></div>
-            
-            <h2 class="section-title">1. Executive Summary & Proforma</h2>
-            <div class="metrics-grid">
-                <div class="metric-card">
-                    <div class="metric-val">${appraisal_val:,.0f}</div>
-                    <div class="metric-lbl">Appraised Value</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-val">{target_yoc}%</div>
-                    <div class="metric-lbl">Yield-on-Cost</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-val">${monthly_rent:,.0f}</div>
-                    <div class="metric-lbl">Monthly Rent</div>
-                </div>
-            </div>
-
-            <h3>Underwriting Baseline</h3>
-            <table class="data-table">
-                <tr><th>Parameter</th><th>Value</th></tr>
-                <tr><td>Unit Size</td><td>{sq_ft:,.0f} SqFt</td></tr>
-                <tr><td>Gross Rent Multiplier</td><td>10.0x Market Baseline</td></tr>
-                <tr><td>Construction Debt Facility</td><td>75% LTV</td></tr>
-            </table>
-        </body>
-        </html>
-        """
-        
-        # Write to temp file and generate PDF bytes
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp_path = tmp.name
-            
-        HTML(string=html_content).write_pdf(tmp_path)
-        
-        with open(tmp_path, "rb") as f:
-            pdf_bytes = f.read()
-            
-        os.unlink(tmp_path)
+    with st.spinner("Compiling pure-Python FPDF Layout..."):
+        pdf_bytes = compile_pdf()
         
         st.success("✅ Deal Packet Generated Successfully!")
         st.download_button(
             label="📥 Download PDF Investment Packet",
             data=pdf_bytes,
-            file_name=f"Wickboldt_Capital_{active_project}_Deal_Packet.pdf",
+            file_name=f"Wickboldt_Capital_{active_project.replace(' ', '_')}_Deal_Packet.pdf",
             mime="application/pdf",
             type="primary"
         )
+        
