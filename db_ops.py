@@ -70,17 +70,37 @@ def delete_user(email, admin_email="System"):
     log_audit_action(admin_email, "DELETE_USER", f"Deleted user: {email}"); st.cache_data.clear(); return True, "Success"
 
 # ==========================================
-# 📁 PROJECT CONTROL
+# 📁 PROJECT CONTROL (MULTI-TENANT ISOLATION)
 # ==========================================
-@st.cache_data(ttl=3600)
-def get_all_projects_df():
+def ensure_project_user_column():
+    """Safely ensures the user_email column exists for multi-tenancy."""
+    try:
+        with get_transaction() as conn:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN user_email VARCHAR(255)"))
+    except Exception:
+        pass # Column already exists
+
+@st.cache_data(ttl=60)
+def get_user_projects_df(user_email, role):
+    """Fetches only projects belonging to the user, unless they are an Admin."""
+    ensure_project_user_column()
     with get_read_connection() as conn: 
-        return pd.read_sql(text("SELECT project_id, project_name, phase, notes FROM projects"), conn)
+        if role == "Admin":
+            return pd.read_sql(text("SELECT project_id, project_name, phase, notes, user_email FROM projects"), conn)
+        else:
+            return pd.read_sql(text("SELECT project_id, project_name, phase, notes, user_email FROM projects WHERE user_email = :email"), conn, params={"email": user_email})
+
+@st.cache_data(ttl=60)
+def get_all_projects_df():
+    ensure_project_user_column()
+    with get_read_connection() as conn: 
+        return pd.read_sql(text("SELECT project_id, project_name, phase, notes, user_email FROM projects"), conn)
 
 def create_project(name, phase, notes, user_email="System"):
+    ensure_project_user_column()
     try:
         with get_transaction() as conn: 
-            conn.execute(text("INSERT INTO projects (project_name, phase, notes) VALUES (:name, :phase, :notes)"), {"name": name, "phase": phase, "notes": notes})
+            conn.execute(text("INSERT INTO projects (project_name, phase, notes, user_email) VALUES (:name, :phase, :notes, :email)"), {"name": name, "phase": phase, "notes": notes, "email": user_email})
         log_audit_action(user_email, "CREATE_PROJECT", f"Created project: {name}")
         st.cache_data.clear()
         return True, "Success"
@@ -249,7 +269,7 @@ def delete_lms_topic(topic_id):
 def get_lms_subtopics():
     with get_read_connection() as conn: return pd.read_sql(text("SELECT st.*, t.title as topic_title, m.title as module_title, ch.title as chapter_title, c.title as category_title FROM lms_subtopics st JOIN lms_topics t ON st.topic_id = t.id JOIN lms_modules m ON t.module_id = m.id JOIN lms_chapters ch ON m.chapter_id = ch.id JOIN lms_categories c ON ch.category_id = c.id ORDER BY c.sort_order ASC, ch.sort_order ASC, m.sort_order ASC, t.sort_order ASC, st.sort_order ASC, st.title ASC"), conn)
 def add_lms_subtopic(top_id, title, desc, content, video, sort, fname, fdata, fdesc):
-    with get_transaction() as conn: conn.execute(text("INSERT INTO lms_subtopics (topic_id, title, description, content, video_url, sort_order, attached_file_name, attached_file_data, attached_file_desc) VALUES (:t, :ti, :d, :cnt, :v, :s, :fn, :fd, :fdesc)"), {"t": top_id, "ti": title, "d": desc, "cnt": content, "v": video, "s": sort, "fn": fname, "fd": fdata, "fdesc": fdesc})
+    with get_transaction() as conn: conn.execute(text("INSERT INTO lms_subtopics (topic_id, title, description, content, video_url, sort_order, attached_file_name, attached_file_data, attached_file_desc) VALUES (:t, :ti, :d, :cnt, :v, :s, :fn, :fd, :fdesc)"), {"t": top_id, "ti": title, "d": desc, "cnt": content, "v": video, "s": sort, "fn": fname, "fd": "fdesc"})
 def delete_lms_subtopic(sub_id):
     with get_transaction() as conn: conn.execute(text("DELETE FROM lms_subtopics WHERE id=:id"), {"id": sub_id})
 
