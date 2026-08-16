@@ -157,11 +157,19 @@ else:
         "Financials & Underwriting": [
             st.Page("pages/proforma.py", title="Proforma & Underwriting", icon="📈"),
             st.Page("pages/estimation.py", title="Cost Estimation", icon="🧮"),
+            st.Page("pages/bid_intake.py", title="AI Bid Ingestion", icon="🤖"),
             st.Page("pages/forecasting.py", title="Cash Flow Forecasting", icon="🔮"),
             st.Page("pages/capitaldebtstack.py", title="Capital Stack & Debt", icon="🏦"),
         ],
+        "Architecture & Specs": [
+            st.Page("pages/architecture.py", title="Master Architecture", icon="📐"),
+        ],
+        "Engineering Disciplines": [
+            st.Page("pages/eng_hvac.py", title="HVAC (ACCA)", icon="❄️"),
+            st.Page("pages/eng_plumbing.py", title="Plumbing & Water", icon="🚰"),
+            st.Page("pages/eng_electrical.py", title="Electrical & Power", icon="⚡"),
+        ],
         "Operations & Execution": [
-            st.Page("pages/engineering.py", title="Engineering Specs", icon="🏗️"),
             st.Page("pages/quality.py", title="Quality Control", icon="✅"),
             st.Page("pages/safety.py", title="Jobsite Safety", icon="🦺"),
             st.Page("pages/training.py", title="Training & SOPs", icon="📚"), 
