@@ -171,6 +171,7 @@ else:
             st.Page("pages/diligence.py", title="Due Diligence", icon="📑"),
             st.Page("pages/marketing.py", title="Marketing Library", icon="📢"),
             st.Page("pages/governance.py", title="Master Company Library", icon="🏢"),
+            st.Page("pages/roadmap.py", title="Enterprise Roadmap", icon="🚀"),
             st.Page("pages/user_management.py", title="User Management", icon="🔐"),
             st.Page("pages/settings.py", title="Account Settings", icon="⚙️"),
         ]
