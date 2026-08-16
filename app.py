@@ -6,16 +6,30 @@ from core_backend import auto_backup_db, init_db, inject_custom_theme
 from db_ops import get_library_state
 
 # ==========================================
-# 🛑 INITIALIZATION & SECURITY GATES
+# 🛑 DYNAMIC PAGE CONFIGURATION (ANTI-FLASH)
 # ==========================================
-st.set_page_config(
-    page_title="Wickboldt Capital - Development Portal",
-    layout="wide",
-    initial_sidebar_state="expanded", # Keep expanded to prevent sliding animation
-)
+# We must check the session state before running any Streamlit commands
+if "logged_in" not in st.session_state: 
+    st.session_state["logged_in"] = False
+
+if not st.session_state["logged_in"]:
+    # Start collapsed and instantly kill all sidebar CSS animations/visibility
+    st.set_page_config(page_title="Wickboldt Capital - Development Portal", layout="wide", initial_sidebar_state="collapsed")
+    st.markdown("""
+        <style>
+            [data-testid="stSidebar"], [data-testid="collapsedControl"] {
+                display: none !important;
+                visibility: hidden !important;
+                width: 0px !important;
+                transition: none !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+else:
+    # Start expanded normally once authenticated
+    st.set_page_config(page_title="Wickboldt Capital - Development Portal", layout="wide", initial_sidebar_state="expanded")
 
 # --- SESSION STATE INITIALIZATION ---
-if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
 if "active_project" not in st.session_state: st.session_state["active_project"] = None
 if "email" not in st.session_state: st.session_state["email"] = "steve.wickboldt.jr@gmail.com"
 if "role" not in st.session_state: st.session_state["role"] = "Admin"
@@ -25,18 +39,8 @@ if st.session_state.get("email") == "steve.wickboldt.jr@gmail.com":
     st.session_state["role"] = "Admin"
 
 # ==========================================
-# 🚦 IMMEDIATE ANTI-FLASH CSS INJECTION
+# 🔒 FORCE HTTPS & SYSTEM INIT
 # ==========================================
-# This MUST run before anything else so the browser hides the sidebar instantly
-if not st.session_state["logged_in"]:
-    st.markdown("""
-        <style>
-            [data-testid="stSidebar"] { display: none !important; }
-            [data-testid="collapsedControl"] { display: none !important; }
-        </style>
-    """, unsafe_allow_html=True)
-
-# Force HTTPS
 try:
     host = st.context.headers.get("Host", "")
     if "portal.wickboldtcapital.com" in host:
