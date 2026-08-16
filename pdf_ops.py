@@ -32,4 +32,4 @@ def generate_proforma_pdf(project_cost, required_equity, noi, yield_on_cost, cas
         pdf.cell(0, 8, f"Year {i}: ${cf:,.0f}", ln=True)
         
     # Return the PDF file as a byte stream ready for download
-    return pdf.output(dest="S").encode("latin-1")
+    return bytes(pdf.output())
