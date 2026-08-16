@@ -2,6 +2,8 @@ import os
 import streamlit as st
 import json
 import pandas as pd
+import uuid
+from datetime import date
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from core_backend import hash_password
@@ -88,7 +90,8 @@ def create_project(name, phase, notes, user_email="System"):
 def delete_project(project_name, user_email="System"):
     try:
         with get_transaction() as conn:
-            conn.execute(text("DELETE FROM milestones WHERE project_name = :name"), {"name": project_name})
+            # Note: Also deleting from project_milestones now to keep DB clean
+            conn.execute(text("DELETE FROM project_milestones WHERE project_name = :name"), {"name": project_name})
             conn.execute(text("DELETE FROM projects WHERE project_name = :name"), {"name": project_name})
         log_audit_action(user_email, "DELETE_PROJECT", f"Deleted project: {project_name}")
         st.cache_data.clear()
@@ -150,36 +153,67 @@ def update_library_doc(doc_title, new_text, user_email="System"):
     st.cache_data.clear()
 
 # ==========================================
-# ⏱️ SCHEDULING & MILESTONE DEPENDENCY ENGINE
+# ⏱️ ENTERPRISE SCHEDULING & MILESTONES
 # ==========================================
-@st.cache_data(ttl=60)
+def init_milestones_table():
+    with get_transaction() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS project_milestones (
+                id TEXT PRIMARY KEY,
+                project_name TEXT,
+                phase_category TEXT,
+                task_name TEXT,
+                assigned_trade TEXT,
+                start_date TEXT,
+                due_date TEXT,
+                is_complete INTEGER DEFAULT 0,
+                completed_by TEXT,
+                completed_at TEXT
+            )
+        """))
+
 def get_project_milestones(project_name: str):
-    """Fetches milestones and dependency status for the active project."""
-    default_milestones = [
-        {"id": "m1", "name": "Site Survey & Engineering Plat", "status": "Completed", "depends_on": None, "phase": "Pre-Construction"},
-        {"id": "m2", "name": "Civil Permits & Approvals", "status": "Completed", "depends_on": "m1", "phase": "Pre-Construction"},
-        {"id": "m3", "name": "Foundation Excavation & Pour", "status": "In Progress", "depends_on": "m2", "phase": "Structural"},
-        {"id": "m4", "name": "Framing & Structural Steel", "status": "Locked", "depends_on": "m3", "phase": "Structural"},
-        {"id": "m5", "name": "MEP Rough-Ins (Mechanical, Electrical, Plumbing)", "status": "Locked", "depends_on": "m4", "phase": "Systems"},
-        {"id": "m6", "name": "Insulation & Drywall", "status": "Locked", "depends_on": "m5", "phase": "Interior Finishes"},
-        {"id": "m7", "name": "Final Building & Elevation Inspection", "status": "Locked", "depends_on": "m6", "phase": "Closeout"}
-    ]
-    return default_milestones
+    """Fetches all milestones for the active project from Supabase/PostgreSQL."""
+    init_milestones_table()
+    with get_read_connection() as conn:
+        return pd.read_sql_query(
+            text("SELECT * FROM project_milestones WHERE project_name=:p_name"), 
+            conn, 
+            params={"p_name": project_name}
+        )
 
-def update_milestone_status(project_name: str, milestone_id: str, new_status: str):
-    """Updates a milestone status and automatically evaluates dependent downstream milestones."""
-    log_audit_action("System", "UPDATE_MILESTONE", f"Project {project_name}: Milestone {milestone_id} updated to {new_status}")
-    st.cache_data.clear()
+def add_enterprise_milestone(project_name, phase_category, task_name, assigned_trade, start_date, due_date):
+    init_milestones_table()
+    with get_transaction() as conn:
+        conn.execute(text("""
+            INSERT INTO project_milestones 
+            (id, project_name, phase_category, task_name, assigned_trade, start_date, due_date, is_complete) 
+            VALUES (:id, :p_name, :phase, :task, :trade, :start, :due, 0)
+        """), {
+            "id": str(uuid.uuid4()),
+            "p_name": project_name,
+            "phase": phase_category,
+            "task": task_name,
+            "trade": assigned_trade,
+            "start": str(start_date),
+            "due": str(due_date)
+        })
 
-def add_milestone(project_name, task_name):
-    with get_transaction() as conn: 
-        conn.execute(text("INSERT INTO milestones (project_name, task_name) VALUES (:project_name, :task_name)"), {"project_name": project_name, "task_name": task_name})
-    st.cache_data.clear()
+def complete_enterprise_milestone(milestone_id, user_email):
+    with get_transaction() as conn:
+        conn.execute(text("""
+            UPDATE project_milestones 
+            SET is_complete=1, completed_by=:email, completed_at=:c_at 
+            WHERE id=:id
+        """), {
+            "email": user_email,
+            "c_at": str(date.today()),
+            "id": milestone_id
+        })
 
-def complete_milestone(milestone_id, user_email):
-    with get_transaction() as conn: 
-        conn.execute(text("UPDATE milestones SET is_complete = TRUE, completed_by = :email, completed_at = NOW() WHERE id = :id"), {"email": user_email, "id": milestone_id})
-    st.cache_data.clear()
+def delete_enterprise_milestone(milestone_id):
+    with get_transaction() as conn:
+        conn.execute(text("DELETE FROM project_milestones WHERE id=:id"), {"id": milestone_id})
 
 # ==========================================
 # 🎓 5-LEVEL ENTERPRISE LMS (FLEXIBLE CONTENT)
