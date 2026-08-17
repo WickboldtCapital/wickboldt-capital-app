@@ -6,17 +6,18 @@ from core_backend import auto_backup_db, init_db, inject_custom_theme
 from db_ops import get_library_state
 
 # ==========================================
-# 🛑 DYNAMIC PAGE CONFIGURATION (ANTI-FLASH)
+# 🛑 INITIALIZATION & SECURITY GATES
 # ==========================================
 # We must check the session state before running any Streamlit commands
 if "logged_in" not in st.session_state: 
     st.session_state["logged_in"] = False
 
 if not st.session_state["logged_in"]:
-    # Start collapsed and instantly kill all sidebar CSS animations/visibility
     st.set_page_config(page_title="Wickboldt Capital - Development Portal", layout="wide", initial_sidebar_state="collapsed")
+    # Aggressive CSS: Hide sidebar entirely, and hide the body until fully loaded to prevent any flash
     st.markdown("""
         <style>
+            body { visibility: hidden; } /* Hide everything initially */
             [data-testid="stSidebar"], [data-testid="collapsedControl"] {
                 display: none !important;
                 visibility: hidden !important;
@@ -24,6 +25,12 @@ if not st.session_state["logged_in"]:
                 transition: none !important;
             }
         </style>
+        <script>
+            // Reveal the body after a tiny delay, ensuring the sidebar CSS has applied
+            setTimeout(function() {
+                document.body.style.visibility = "visible";
+            }, 50); 
+        </script>
     """, unsafe_allow_html=True)
 else:
     # Start expanded normally once authenticated
