@@ -6,7 +6,9 @@ from datetime import date
 
 st.set_page_config(page_title="Jobsite Safety", layout="wide")
 
-# --- SECURITY GUARD ---
+# ==========================================
+# 🔒 SECURITY & CONTEXT GUARDS
+# ==========================================
 active_project = st.session_state.get("active_project")
 if not active_project:
     st.warning("⚠️ Access Restricted: Please load a project from the Control tab.")
@@ -37,14 +39,21 @@ osha_data = db_state.get("osha_data", {})
 
 st.header("🦺 Jobsite Safety & OSHA Compliance")
 st.markdown(f"**Active Development:** `{active_project}`")
-st.markdown("Log daily toolbox talks, enforce OSHA compliance checklists, and track safety milestones.")
+st.markdown("Log daily toolbox talks, enforce OSHA compliance checklists, and track safety budgets for Proforma integration.")
 st.divider()
 
-# --- TABS ---
-tab_talks, tab_osha = st.tabs(["🗣️ Daily Toolbox Talks", "📋 OSHA Compliance Checklists"])
+# ==========================================
+# ENTERPRISE WORKFLOW TABS (FOUR PILLARS)
+# ==========================================
+tab_talks, tab_osha, tab_cost, tab_report = st.tabs([
+    "1. 🗣️ Daily Toolbox Talks", 
+    "2. 📋 OSHA Compliance",
+    "3. 💰 Safety Budget & Sync",
+    "4. 📋 Compliance Certificate"
+])
 
 # ==========================================
-# TAB 1: TOOLBOX TALKS LOGGER
+# TAB 1: TOOLBOX TALKS LOGGER (Your Exact Code)
 # ==========================================
 with tab_talks:
     st.subheader("Log a New Toolbox Talk")
@@ -91,7 +100,7 @@ with tab_talks:
         st.info("No toolbox talks logged for this project yet.")
 
 # ==========================================
-# TAB 2: OSHA COMPLIANCE CHECKLIST
+# TAB 2: OSHA COMPLIANCE CHECKLIST (Your Exact Code)
 # ==========================================
 with tab_osha:
     st.subheader("Standard Site Safety Checks")
@@ -146,3 +155,65 @@ with tab_osha:
         if submit_osha:
             save_state({"osha_data": updated_osha_data})
             st.success("OSHA Compliance Checklist updated!")
+
+# ==========================================
+# TAB 3: SAFETY BUDGET & PROFORMA SYNC (Enterprise Pillar 2)
+# ==========================================
+with tab_cost:
+    st.subheader("Safety Equipment & Compliance Budgeting")
+    st.markdown("Estimate hard costs for jobsite safety equipment to sync into your Proforma indirect budget.")
+    
+    scol1, scol2 = st.columns(2)
+    with scol1:
+        ppe_budget = st.number_input("PPE Station, Vests, Hard Hats & Glasses ($)", value=350.0, step=50.0)
+        first_aid_budget = st.number_input("OSHA-Compliant First Aid Kits & Eye Wash ($)", value=200.0, step=25.0)
+        signage_budget = st.number_input("Jobsite Safety & Warning Signage ($)", value=250.0, step=25.0)
+    with scol2:
+        fencing_budget = st.number_input("Temporary Safety Fencing & Barricades ($)", value=1200.0, step=100.0)
+        extinguishers_budget = st.number_input("Jobsite Fire Extinguishers ($)", value=150.0, step=25.0)
+        
+        total_safety_cost = ppe_budget + first_aid_budget + signage_budget + fencing_budget + extinguishers_budget
+
+    st.divider()
+    st.metric("💰 Total Jobsite Safety Budget", f"${total_safety_cost:,.2f}")
+
+    if st.button("💾 Sync Safety Budget to Proforma & Project Database", type="primary", use_container_width=True):
+        try:
+            current_state = get_db_state()
+            if "estimates" not in current_state:
+                current_state["estimates"] = {}
+            current_state["estimates"]["Jobsite Safety & Compliance"] = total_safety_cost
+            save_state({"estimates": current_state["estimates"]})
+            st.toast("✅ Safety budget synced to Proforma master ledger!")
+        except Exception as e:
+            st.error(f"Database error: {e}")
+
+# ==========================================
+# TAB 4: OSHA COMPLIANCE CERTIFICATE (Enterprise Pillar 3)
+# ==========================================
+with tab_report:
+    st.subheader("📋 OSHA Jobsite Compliance Summary")
+    st.markdown("Printable compliance summary confirming adherence to OSHA standards for lender risk management.")
+    
+    total_checks = len(osha_data) if osha_data else sum(len(items) for items in osha_categories.values())
+    passed_checks = sum(1 for status in osha_data.values() if status == "Pass")
+    failed_checks = sum(1 for status in osha_data.values() if status == "Fail")
+    pending_checks = sum(1 for status in osha_data.values() if status == "Pending")
+    
+    st.markdown(f"""
+    ### Safety Record Verification
+    * **Project Development:** `{active_project}`
+    * **Total Safety Checkpoints Audited:** {total_checks}
+    * **Passed Items Verified:** {passed_checks}
+    * **Active Violations (Fail):** {failed_checks}
+    * **Pending Inspections:** {pending_checks}
+    
+    > **Indemnification & Safety Policy:** Wickboldt Capital enforces strict adherence to 29 CFR OSHA standards across all active builds. All trade partners and subcontractors are contractually required to maintain hazard-free working conditions and provide certified PPE.
+    """)
+    
+    if failed_checks == 0 and passed_checks > 0:
+        st.success("🟢 **Jobsite Safety Status:** Fully compliant with audited safety standards.")
+    elif failed_checks > 0:
+        st.warning(f"⚠️ **Attention Required:** {failed_checks} safety violation(s) identified. Immediate corrective action required.")
+    else:
+        st.info("🔄 **Status:** Audits pending.")
