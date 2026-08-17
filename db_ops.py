@@ -85,7 +85,8 @@ def get_user_projects_df(user_email, role):
     """Fetches only projects belonging to the user, unless they are an Admin."""
     ensure_project_user_column()
     with get_read_connection() as conn: 
-        if role == "Admin":
+        # Case-Insensitive check applied here
+        if role and role.lower() == "admin":
             return pd.read_sql(text("SELECT project_id, project_name, phase, notes, user_email FROM projects"), conn)
         else:
             return pd.read_sql(text("SELECT project_id, project_name, phase, notes, user_email FROM projects WHERE user_email = :email"), conn, params={"email": user_email})
@@ -248,7 +249,7 @@ def delete_lms_category(cat_id):
 def get_lms_chapters():
     with get_read_connection() as conn: return pd.read_sql(text("SELECT ch.*, c.title as category_title FROM lms_chapters ch JOIN lms_categories c ON ch.category_id = c.id ORDER BY c.sort_order ASC, ch.sort_order ASC, ch.title ASC"), conn)
 def add_lms_chapter(cat_id, title, desc, sort):
-    with get_transaction() as conn: conn.execute(text("INSERT INTO lms_chapters (category_id, title, description, sort_order) VALUES (:c, :t, :d, :s)"), {"c": cat_id, "t": title, "d": desc, "sort": sort})
+    with get_transaction() as conn: conn.execute(text("INSERT INTO lms_chapters (category_id, title, description, sort_order) VALUES (:c, :t, :d, :sort)"), {"c": cat_id, "t": title, "d": desc, "sort": sort})
 def delete_lms_chapter(chap_id):
     with get_transaction() as conn: conn.execute(text("DELETE FROM lms_chapters WHERE id=:id"), {"id": chap_id})
 
