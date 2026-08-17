@@ -91,24 +91,36 @@ else:
 # ==========================================
 # ENTERPRISE UPGRADE: SYNC ENGINEERED COSTS
 # ==========================================
-# Pull exact budgets calculated from the new Engineering Modules
+# Pull exact budgets calculated from the new Engineering & Architecture Modules
 eng_data = db_state.get("engineering", {})
+estimates_data = db_state.get("estimates", {})
+
 eng_framing = float(eng_data.get("framing_total_cost", 0.0))
 eng_plumbing = float(eng_data.get("plumbing_total_cost", 0.0))
 eng_electrical = float(eng_data.get("elec_total_cost", 0.0))
+
+arch_exterior = float(estimates_data.get("Exterior Shell Finishes", 0.0))
+arch_interior = float(estimates_data.get("Interior Finishes & Drywall", 0.0))
+
 total_engineered_mep = eng_plumbing + eng_electrical
-total_engineered_hard_costs = eng_framing + eng_plumbing + eng_electrical
+total_engineered_hard_costs = eng_framing + arch_exterior + total_engineered_mep + arch_interior
 
 # We replace the generic top-down baseline with our engineered numbers if they exist
 generic_base_split = est_direct / 5.0 if est_direct > 0 else 0
 
 budget_site = generic_base_split
-budget_framing = eng_framing if eng_framing > 0 else generic_base_split
+
+# Combine Framing and Architecture Exterior for the full Shell bucket
+if eng_framing > 0 or arch_exterior > 0:
+    budget_framing_ext = eng_framing + arch_exterior
+else:
+    budget_framing_ext = generic_base_split
+
 budget_mep = total_engineered_mep if total_engineered_mep > 0 else generic_base_split
-budget_finishes = generic_base_split
+budget_finishes = arch_interior if arch_interior > 0 else generic_base_split
 budget_contingency = generic_base_split
 
-adjusted_direct_baseline = budget_site + budget_framing + budget_mep + budget_finishes + budget_contingency
+adjusted_direct_baseline = budget_site + budget_framing_ext + budget_mep + budget_finishes + budget_contingency
 baseline_total = adjusted_direct_baseline + est_indirect
 adjusted_total_cost = baseline_total if ingested_hard_costs == 0 else ingested_hard_costs + max(0, baseline_total - ingested_hard_costs)
 
@@ -127,9 +139,10 @@ with col1:
     if total_engineered_hard_costs > 0:
         st.success(
             f"**📐 Engineered Sync: ${total_engineered_hard_costs:,.0f}**\n\n"
-            f"🪵 Framing: ${eng_framing:,.0f}\n\n"
+            f"🪵 Framing & Shell: ${(eng_framing + arch_exterior):,.0f}\n\n"
             f"🚰 Plumbing: ${eng_plumbing:,.0f}\n\n"
-            f"⚡ Electrical: ${eng_electrical:,.0f}"
+            f"⚡ Electrical: ${eng_electrical:,.0f}\n\n"
+            f"🎨 Interior Finishes: ${arch_interior:,.0f}"
         )
         
     st.info(f"**🤖 AI-Ingested Actuals:** ${ingested_hard_costs:,.2f}")
@@ -233,7 +246,7 @@ with col2:
         },
         {
             "Category": "Framing, Exterior Shell & Roof",
-            "Target Budget": budget_framing,
+            "Target Budget": budget_framing_ext,
             "Ingested Actuals": actuals_by_category.get("Framing, Exterior Shell & Roof", 0.0)
         },
         {
@@ -259,10 +272,12 @@ with col2:
         item["Remaining Budget"] = var
         item["Status"] = "🔴 Over Budget" if var < 0 else "🟢 On Track"
         
-        # Add an indicator if the budget came from the engineering modules
-        if item["Category"] == "Framing, Exterior Shell & Roof" and eng_framing > 0:
+        # Add an indicator if the budget came from the engineering/architecture modules
+        if item["Category"] == "Framing, Exterior Shell & Roof" and (eng_framing > 0 or arch_exterior > 0):
             item["Category"] += " (Engineered Sync)"
         if item["Category"] == "MEP (Mechanical, Electrical, Plumbing)" and total_engineered_mep > 0:
+            item["Category"] += " (Engineered Sync)"
+        if item["Category"] == "Interior Finishes & Drywall" and arch_interior > 0:
             item["Category"] += " (Engineered Sync)"
             
         final_var_data.append(item)
