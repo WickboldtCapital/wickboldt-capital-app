@@ -13,13 +13,14 @@ st.caption("Live tracking of architectural updates, feature deployments, and upc
 st.divider()
 
 st.markdown("""
-### 📋 Summary of Changes (Current Revision: Rev 6.0)
+### 📋 Summary of Changes (Current Revision: Rev 11.0)
 *August 2026*
 
-* **Complete MEP Engineering Suite:** Deployed enterprise-grade Mechanical, Electrical, and Plumbing modules. Includes ACCA Manual J/S/D HVAC load calculations, IPC WSFU/DFU plumbing sizing with gas loads, and NEC Article 220 electrical service load modeling.
-* **Structural & Foundation Engineering:** Swapped ICF logic for a dynamic monolithic/stem-wall concrete yardage calculator with FEMA BFE tracking. Deployed comprehensive framing takeoffs including 24" O.C. Advanced Framing (OVE) and hybrid SIPs panel configurations.
-* **Proforma ERP Integration:** Hard-wired the new engineering modules directly into the Proforma. The financial engine now intercepts granular MEP and Framing budgets, dynamically replacing generic baselines within the Variance Report.
-* **Dual-Audience Submittals:** Upgraded all engineering modules to automatically generate both municipal-ready Code Compliance submittals (for inspectors) and granular Scope of Work checklists (for subcontractor bidding).
+* **Multi-Tenant Security Architecture:** Integrated strict project-level data isolation across all modules. Authorized users can now only access projects explicitly mapped to their profile via the Project Control Center and User Management panel.
+* **Master Document Vault (`pages/vault.py`):** Deployed a centralized, physical file management system. Securely upload and download PDF blueprints, site drawings, municipal permits, and legal deeds isolated by project.
+* **Subcontractor CRM & Procurement (`pages/subs.py`):** Fully operationalized trade roster, Bid Requests (RFPs), a Quote Document Vault, and **live Bid Leveling against engineered targets** (automatically pulling MEP, Framing, and Architecture budgets from the database).
+* **Enterprise Proforma 3-Tier Waterfall:** Upgraded the financial engine to prioritize Awarded Subcontractor Contracts over engineered estimates and generic baselines, dynamically tagging line items in the Variance Report.
+* **SOP & Training LMS (`pages/training.py`):** Integrated a robust 5-level curriculum builder (Categories ➡️ Chapters ➡️ Modules ➡️ Topics ➡️ Sub-Topics) with rich text `st_quill` editing, media attachments, and multi-tenant isolated Jobsite Certification logs.
 
 ---
 
@@ -40,26 +41,30 @@ st.markdown("""
 - [x] Cash Flow Forecasting & Lender Draw Schedules (`pages/forecasting.py`).
 - [x] AI Bid Ingestion and interactive data parsing (`pages/bid_intake.py`).
 
-#### 🏗️ Phase 3: Engineering & Operations (Active)
+#### ✅ Phase 3: Engineering & Field Operations (Completed)
 - [x] Civil & Foundation Concrete Engineering (`pages/eng_foundation.py`).
 - [x] Structural Framing & SIPs Configuration (`pages/eng_framing.py`).
 - [x] ACCA Manual J/S/D HVAC Calculations (`pages/eng_hvac.py`).
 - [x] IPC Plumbing, Water & Gas Load Engineering (`pages/eng_plumbing.py`).
 - [x] NEC Article 220 Electrical Panel Sizing (`pages/eng_electrical.py`).
-- [ ] Master Architecture & Specs (`pages/architecture.py`).
-- [ ] Quality Control & Phase Inspections (`pages/quality.py`).
-- [ ] Jobsite Safety & OSHA Compliance (`pages/safety.py`).
+- [x] Quality Control & Phase Inspections (`pages/quality.py`).
+- [x] Jobsite Safety & OSHA Compliance (`pages/safety.py`).
 
-#### 🏢 Phase 4: Master Company Library & Governance (Upcoming)
-- [ ] Subcontractor CRM & Bid Management (`pages/subs.py`).
-- [ ] Secure Document Vault for Deeds, Loans, and Permits.
-- [ ] Standard Operating Procedures (SOP) & LMS tracking.
-- [ ] Marketing & Due Diligence asset management.
+#### ✅ Phase 4: Master Company Library & Governance (Completed)
+- [x] Subcontractor CRM, RFPs, & Bid Leveling (`pages/subs.py`).
+- [x] Master Document Vault with physical file handling (`pages/vault.py`).
+- [x] Standard Operating Procedures & Enterprise LMS (`pages/training.py`).
+- [x] Multi-Tenant Project Isolation & Role-Based Access Control.
+
+#### 🏗️ Phase 5: Future Enhancements (Active)
+- [ ] Executive Portfolio-Level Aggregation Dashboard (`pages/dashboard.py`).
 
 ---
 
 ### 📜 Master Update Log
 
+* **Rev 11.0 (Aug 2026):** Completed Phase 10/Phase 4 Enterprise Governance. Deployed multi-tenant security architecture, Master Document Vault with disk uploads, Subcontractor procurement against engineered targets, and the Enterprise LMS training suite.
+* **Rev 10.0 (Aug 2026):** Officially completed and deployed Phase 9 (Scheduling & Milestones module with live database hooks).
 * **Rev 6.0 (Aug 2026):** Deployed complete MEP suite (HVAC, Plumbing, Electrical), Structural/Foundation upgrades, and live Proforma ERP synchronization.
 * **Rev 5.0 (Aug 2026):** User Management, Security Logs, AI Bid Ingestion, Live Proforma Variance, Cash Flow Forecasting, UI Flash Suppression.
 * **Rev 4.0 (Aug 2026):** Strict Auth-gating, FPDF2 Deal Packets, Capital Stack calculations, Full Sidebar restoration.
