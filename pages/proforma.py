@@ -8,7 +8,7 @@ from db_ops import get_project_budget
 st.set_page_config(page_title="Dynamic Scenario Modeling & Proforma", layout="wide")
 
 st.title("Dynamic Scenario Modeling & Proforma 📈")
-st.markdown("Stress-test your build-to-rent underwriting with live variables. Hard costs automatically sync with your MEP/Framing modules and AI-ingested bids.")
+st.markdown("Stress-test your build-to-rent underwriting. Budgets cascade dynamically from Baseline ➡️ Engineered Targets ➡️ Awarded Contracts.")
 st.divider()
 
 # Ensure we have an active project to pull the budget from
@@ -89,16 +89,25 @@ else:
     est_indirect = sum([float(db_state.get(k, v)) for k, v in [("ind_land_est", 9997.75), ("ind_gc_est", 9997.75), ("ind_soft_est", 4998.88), ("ind_r_close_est", 4998.88), ("ind_res_est", 40059.6)]])
 
 # ==========================================
-# ENTERPRISE UPGRADE: SYNC ENGINEERED COSTS
+# ENTERPRISE UPGRADE: WATERFALL BUDGETING (Awarded > Engineered > Baseline)
 # ==========================================
-# Pull exact budgets calculated from the new Engineering, Architecture, QC, & Safety Modules
 eng_data = db_state.get("engineering", {})
 estimates_data = db_state.get("estimates", {})
+awarded_bids = db_state.get("awarded_bids", {})
 
+# 1. Calculate Awarded Subcontractor Totals by Category
+def get_awarded_sum(trade_list):
+    return sum([float(awarded_bids.get(t, {}).get("Awarded_Amount", 0.0)) for t in trade_list])
+
+awarded_site = get_awarded_sum(["Site Work & Excavation", "Concrete & Foundation"])
+awarded_shell = get_awarded_sum(["Framing", "Roofing"])
+awarded_mep = get_awarded_sum(["Plumbing", "Electrical", "HVAC"])
+awarded_finishes = get_awarded_sum(["Drywall & Insulation", "Painting", "Flooring", "Finish Carpentry"])
+
+# 2. Gather Engineered Targets
 eng_framing = float(eng_data.get("framing_total_cost", 0.0))
 eng_plumbing = float(eng_data.get("plumbing_total_cost", 0.0))
 eng_electrical = float(eng_data.get("elec_total_cost", 0.0))
-
 arch_exterior = float(estimates_data.get("Exterior Shell Finishes", 0.0))
 arch_interior = float(estimates_data.get("Interior Finishes & Drywall", 0.0))
 
@@ -106,28 +115,38 @@ qc_cost = float(estimates_data.get("Quality Control & Testing", 0.0))
 safety_cost = float(estimates_data.get("Jobsite Safety & Compliance", 0.0))
 total_ops_cost = qc_cost + safety_cost
 
-total_engineered_mep = eng_plumbing + eng_electrical
-total_engineered_hard_costs = eng_framing + arch_exterior + total_engineered_mep + arch_interior + total_ops_cost
-
-# We replace the generic top-down baseline with our engineered numbers if they exist
+# 3. Apply Waterfall Logic
 generic_base_split = est_direct / 5.0 if est_direct > 0 else 0
 
-budget_site = generic_base_split
+budget_site = awarded_site if awarded_site > 0 else generic_base_split
 
-# Combine Framing and Architecture Exterior for the full Shell bucket
-if eng_framing > 0 or arch_exterior > 0:
+if awarded_shell > 0:
+    budget_framing_ext = awarded_shell
+elif (eng_framing > 0 or arch_exterior > 0):
     budget_framing_ext = eng_framing + arch_exterior
 else:
     budget_framing_ext = generic_base_split
 
-budget_mep = total_engineered_mep if total_engineered_mep > 0 else generic_base_split
-budget_finishes = arch_interior if arch_interior > 0 else generic_base_split
+if awarded_mep > 0:
+    budget_mep = awarded_mep
+elif (eng_plumbing > 0 or eng_electrical > 0):
+    budget_mep = eng_plumbing + eng_electrical
+else:
+    budget_mep = generic_base_split
+
+if awarded_finishes > 0:
+    budget_finishes = awarded_finishes
+elif arch_interior > 0:
+    budget_finishes = arch_interior
+else:
+    budget_finishes = generic_base_split
+
 budget_contingency = generic_base_split
 
 adjusted_direct_baseline = budget_site + budget_framing_ext + budget_mep + budget_finishes + budget_contingency
-
-# Inject Ops Cost (QC & Safety) into the Total Baseline
 baseline_total = adjusted_direct_baseline + est_indirect + total_ops_cost
+
+# AI Ingested overrides Baseline entirely if > 0
 adjusted_total_cost = baseline_total if ingested_hard_costs == 0 else ingested_hard_costs + max(0, baseline_total - ingested_hard_costs)
 
 # --- LAYOUT SETUP ---
@@ -141,17 +160,6 @@ with col1:
     num_units = st.number_input("Total Units/Lots", min_value=1, max_value=200, value=24)
     
     st.info(f"**🏗️ Target Baseline:** ${baseline_total:,.2f}")
-    
-    if total_engineered_hard_costs > 0:
-        st.success(
-            f"**📐 Engineered Sync: ${total_engineered_hard_costs:,.0f}**\n\n"
-            f"🪵 Framing & Shell: ${(eng_framing + arch_exterior):,.0f}\n\n"
-            f"🚰 Plumbing: ${eng_plumbing:,.0f}\n\n"
-            f"⚡ Electrical: ${eng_electrical:,.0f}\n\n"
-            f"🎨 Interior Finishes: ${arch_interior:,.0f}\n\n"
-            f"🛡️ Safety & QC: ${total_ops_cost:,.0f}"
-        )
-        
     st.info(f"**🤖 AI-Ingested Actuals:** ${ingested_hard_costs:,.2f}")
     
     st.subheader("Revenue & Operations")
@@ -243,7 +251,7 @@ with col2:
     # HYBRID VARIANCE REPORTING
     # ==========================================
     st.subheader("📊 Dynamic Hard Cost Variance Report")
-    st.markdown("Tracks your baseline estimates and synced engineered hard costs against real-time actuals ingested via the AI module.")
+    st.markdown("Tracks your baseline estimates, engineered targets, and awarded contracts against real-time actuals ingested via the AI module.")
     
     var_data = [
         {
@@ -284,13 +292,28 @@ with col2:
         item["Remaining Budget"] = var
         item["Status"] = "🔴 Over Budget" if var < 0 else "🟢 On Track"
         
-        # Add an indicator if the budget came from the engineering/architecture modules
-        if item["Category"] == "Framing, Exterior Shell & Roof" and (eng_framing > 0 or arch_exterior > 0):
-            item["Category"] += " (Engineered Sync)"
-        if item["Category"] == "MEP (Mechanical, Electrical, Plumbing)" and total_engineered_mep > 0:
-            item["Category"] += " (Engineered Sync)"
-        if item["Category"] == "Interior Finishes & Drywall" and arch_interior > 0:
-            item["Category"] += " (Engineered Sync)"
+        # Smart Labeling based on Waterfall Logic
+        if item["Category"] == "Site Work, Foundation & Civil Grading" and awarded_site > 0:
+            item["Category"] += " (Awarded Contract)"
+            
+        if item["Category"] == "Framing, Exterior Shell & Roof":
+            if awarded_shell > 0:
+                item["Category"] += " (Awarded Contract)"
+            elif (eng_framing > 0 or arch_exterior > 0):
+                item["Category"] += " (Engineered Sync)"
+                
+        if item["Category"] == "MEP (Mechanical, Electrical, Plumbing)":
+            if awarded_mep > 0:
+                item["Category"] += " (Awarded Contract)"
+            elif (eng_plumbing > 0 or eng_electrical > 0):
+                item["Category"] += " (Engineered Sync)"
+                
+        if item["Category"] == "Interior Finishes & Drywall":
+            if awarded_finishes > 0:
+                item["Category"] += " (Awarded Contract)"
+            elif arch_interior > 0:
+                item["Category"] += " (Engineered Sync)"
+                
         if item["Category"] == "Jobsite Safety & Quality Control" and total_ops_cost > 0:
             item["Category"] += " (Engineered Sync)"
             
