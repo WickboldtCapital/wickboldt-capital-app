@@ -8,35 +8,14 @@ from db_ops import get_library_state
 # ==========================================
 # 🛑 INITIALIZATION & SECURITY GATES
 # ==========================================
-# We must check the session state before running any Streamlit commands
-if "logged_in" not in st.session_state: 
-    st.session_state["logged_in"] = False
-
-if not st.session_state["logged_in"]:
-    st.set_page_config(page_title="Wickboldt Capital - Development Portal", layout="wide", initial_sidebar_state="collapsed")
-    # Aggressive CSS: Hide sidebar entirely, and hide the body until fully loaded to prevent any flash
-    st.markdown("""
-        <style>
-            body { visibility: hidden; } /* Hide everything initially */
-            [data-testid="stSidebar"], [data-testid="collapsedControl"] {
-                display: none !important;
-                visibility: hidden !important;
-                width: 0px !important;
-                transition: none !important;
-            }
-        </style>
-        <script>
-            // Reveal the body after a tiny delay, ensuring the sidebar CSS has applied
-            setTimeout(function() {
-                document.body.style.visibility = "visible";
-            }, 50); 
-        </script>
-    """, unsafe_allow_html=True)
-else:
-    # Start expanded normally once authenticated
-    st.set_page_config(page_title="Wickboldt Capital - Development Portal", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Wickboldt Capital - Development Portal",
+    layout="wide",
+    initial_sidebar_state="expanded", 
+)
 
 # --- SESSION STATE INITIALIZATION ---
+if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
 if "active_project" not in st.session_state: st.session_state["active_project"] = None
 if "email" not in st.session_state: st.session_state["email"] = "steve.wickboldt.jr@gmail.com"
 if "role" not in st.session_state: st.session_state["role"] = "Admin"
@@ -46,8 +25,17 @@ if st.session_state.get("email") == "steve.wickboldt.jr@gmail.com":
     st.session_state["role"] = "Admin"
 
 # ==========================================
-# 🔒 FORCE HTTPS & SYSTEM INIT
+# 🚦 IMMEDIATE ANTI-FLASH CSS INJECTION
 # ==========================================
+if not st.session_state["logged_in"]:
+    st.markdown("""
+        <style>
+            [data-testid="stSidebar"] { display: none !important; }
+            [data-testid="collapsedControl"] { display: none !important; }
+        </style>
+    """, unsafe_allow_html=True)
+
+# Force HTTPS
 try:
     host = st.context.headers.get("Host", "")
     if "portal.wickboldtcapital.com" in host:
@@ -109,13 +97,10 @@ if "view_doc" in st.query_params:
 # ==========================================
 # 🚦 MASTER ROUTING ENGINE
 # ==========================================
-
-# 1. NOT LOGGED IN -> Direct to Login, hide sidebar
 if not st.session_state["logged_in"]:
     pg = st.navigation([st.Page("pages/login.py", title="Sign In", icon="🔒")], position="hidden")
     pg.run()
 
-# 2. LOGGED IN, BUT NO PROJECT -> Show Control Page
 elif not st.session_state.get("active_project"):
     with st.sidebar:
         st.markdown("### 🏗️ Wickboldt Capital")
@@ -131,7 +116,6 @@ elif not st.session_state.get("active_project"):
     pg = st.navigation([st.Page("pages/control.py", title="Project Control", icon="📁")])
     pg.run()
 
-# 3. UNLOCKED ENTERPRISE WORKSPACE
 else:
     with st.sidebar:
         st.markdown("### 🏗️ Wickboldt Capital")
