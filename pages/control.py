@@ -33,8 +33,8 @@ def get_authorized_projects():
     except sqlite3.OperationalError:
         all_projects = []
     
-    # 2. Get User's authorized projects
-    if role == "Admin":
+    # 2. Get User's authorized projects (Case-Insensitive Fix applied here)
+    if role and role.lower() == "admin":
         conn.close()
         return all_projects
     else:
@@ -75,12 +75,15 @@ with col1:
         if st.button("🚀 Load Project Workspace", type="primary"):
             st.session_state["active_project"] = selected_project
             st.success(f"Workspace loaded for: **{selected_project}**. You may now navigate the sidebar modules.")
+            # FORCE APP REFRESH TO REDRAW SIDEBAR
+            st.rerun() 
     else:
         st.warning("⚠️ You currently have no authorized projects assigned to your account. Please contact an Administrator.")
 
 # --- CREATE NEW PROJECT (ADMIN/MANAGER ONLY) ---
 with col2:
-    if role in ["Admin", "Manager"]:
+    # Case-Insensitive Check for project creation
+    if role and role.lower() in ["admin", "manager"]:
         st.subheader("Initialize New Development")
         with st.form("new_project_form", clear_on_submit=True):
             new_project_name = st.text_input("Project / Subdivision Name")
@@ -93,7 +96,7 @@ with col2:
                         st.success(f"Project '{new_project_name}' successfully created!")
                         
                         # If a Manager creates a project, automatically grant them access to it
-                        if role == "Manager":
+                        if role and role.lower() == "manager":
                             try:
                                 cursor = conn.execute("SELECT assigned_projects FROM users WHERE email=?", (user_email,))
                                 row = cursor.fetchone()
@@ -112,7 +115,7 @@ with col2:
                                 conn.commit()
                             except Exception:
                                 pass # Admin can manually fix if mapping fails
-                            
+                        
                         st.rerun()
                     except sqlite3.IntegrityError:
                         st.error(f"Project '{new_project_name}' already exists.")
