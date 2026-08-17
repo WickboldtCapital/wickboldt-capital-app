@@ -13,14 +13,14 @@ st.caption("Live tracking of architectural updates, feature deployments, and upc
 st.divider()
 
 st.markdown("""
-### 📋 Summary of Changes (Current Revision: Rev 4.0)
+### 📋 Summary of Changes (Current Revision: Rev 5.0)
 *August 2026*
 
-* **Authentication & Routing:** Enforced strict, direct-to-login routing, completely eliminating UI "blinking" and separating public marketing from the secure portal.
-* **PDF Engine Overhaul:** Replaced `weasyprint` with `fpdf2` (pure Python) to bypass Linux dependency crashes on cloud deployment.
-* **Deal Packet Enhancements:** Injected a live Capital Stack & Loan-to-Value (LTV) calculator directly into the dynamic PDF generation.
-* **Enterprise Menu Restoration:** Restored the full suite of operational modules (Engineering, Architecture, Operations, Business & Governance) to the secure sidebar.
-* **Database Resilience:** Added automated SQLite cold-start catches to prevent app crashes when loading new or empty modules.
+* **User Management & Security:** Deployed the admin-only User Management console with active role assignment (Admin, Manager, Investor, Viewer) and a live Security Audit Log.
+* **AI Bid Ingestion Pipeline:** Built the `bid_intake` module for multi-line extraction, interactive verification, and bulk database commits of real-world contractor costs.
+* **Live Variance Reporting:** Rewired the Proforma to pull AI-ingested actuals against baseline estimates, creating an automated Hard Cost Variance tracker and dynamic Yield on Cost (YOC) calculation.
+* **Cash Flow Forecasting:** Launched the interactive draw schedule generator, enabling precise capital allocation mapping and S-Curve visualization for lender presentations.
+* **UI Flash Eradication:** Applied conditional `initial_sidebar_state` page configurations and CSS delay tactics to completely mask the Streamlit sidebar React flash on the authentication screen.
 
 ---
 
@@ -28,25 +28,26 @@ st.markdown("""
 
 #### ✅ Phase 1: Core Architecture & Foundation (Completed)
 - [x] Initial Streamlit App Scaffold & Cloud Deployment.
-- [x] Secure multi-tenant login system with role-based access (Admin vs. standard user).
+- [x] Secure multi-tenant login system with role-based access.
 - [x] Robust internal SQLite database with automated backup protocols.
 - [x] Dynamic Sidebar Navigation, Auth-Gating, and Session State management.
+- [x] UI/UX Flash suppression on login screen.
 
-#### 🏗️ Phase 2: Financials & Investment (Active)
+#### ✅ Phase 2: Financials & Investment (Completed)
 - [x] Executive Dashboard with high-level portfolio metrics.
-- [x] Real-time Proforma & Underwriting module.
-- [x] Automated, pure-Python PDF Deal Packet Generator.
-- [ ] **NEXT UP:** User Management Module (`pages/user_management.py`) to invite crew and lenders.
-- [ ] Cash Flow Forecasting (`pages/forecasting.py`).
-- [ ] AI Bid Ingestion and OCR parsing (`pages/bid_intake.py`).
+- [x] Real-time Proforma & Underwriting module with Budget vs. Actuals variance.
+- [x] Automated, pure-Python PDF Deal Packet Generator with live Capital Stack logic.
+- [x] User Management Module (`pages/user_management.py`) & Audit Logs.
+- [x] Cash Flow Forecasting & Lender Draw Schedules (`pages/forecasting.py`).
+- [x] AI Bid Ingestion and interactive data parsing (`pages/bid_intake.py`).
 
-#### 📐 Phase 3: Engineering & Operations (Upcoming)
+#### 🏗️ Phase 3: Engineering & Operations (Active)
 - [ ] ACCA Manual J/S/D HVAC Calculations Integration.
 - [ ] Structural Framing & Foundation Concrete volume estimators.
 - [ ] Safety & Quality Control logging (Toolbox Talks, Audits).
 - [ ] Master Architecture & Specs (`pages/architecture.py`).
 
-#### 🏢 Phase 4: Master Company Library & Governance (Planned)
+#### 🏢 Phase 4: Master Company Library & Governance (Upcoming)
 - [ ] Secure Document Vault for Deeds, Loans, and Permits.
 - [ ] Standard Operating Procedures (SOP) & LMS tracking.
 - [ ] Marketing & Due Diligence asset management.
@@ -55,7 +56,8 @@ st.markdown("""
 
 ### 📜 Master Update Log
 
-* **Rev 4.0 (Aug 2026):** Auth-gating, FPDF2 Deal Packets, Capital Stack calculations, UI blink fix, Full Sidebar restoration.
+* **Rev 5.0 (Aug 2026):** User Management, Security Logs, AI Bid Ingestion, Live Proforma Variance, Cash Flow Forecasting, UI Flash Suppression.
+* **Rev 4.0 (Aug 2026):** Strict Auth-gating, FPDF2 Deal Packets, Capital Stack calculations, Full Sidebar restoration.
 * **Rev 3.0 (Aug 2026):** Multi-tenant DB integration, session state architecture overhaul.
 * **Rev 2.0 (Aug 2026):** Executive dashboard deployment, base estimating tools.
 * **Rev 1.0 (Jul 2026):** Project initiation, repository creation, brand asset injection.
