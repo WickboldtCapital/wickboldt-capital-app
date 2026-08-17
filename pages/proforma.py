@@ -8,7 +8,7 @@ from db_ops import get_project_budget
 st.set_page_config(page_title="Dynamic Scenario Modeling & Proforma", layout="wide")
 
 st.title("Dynamic Scenario Modeling & Proforma 📈")
-st.markdown("Stress-test your build-to-rent underwriting with live variables. Hard costs automatically sync with your Estimator module and AI-ingested bids.")
+st.markdown("Stress-test your build-to-rent underwriting with live variables. Hard costs automatically sync with your MEP/Framing modules and AI-ingested bids.")
 st.divider()
 
 # Ensure we have an active project to pull the budget from
@@ -88,7 +88,28 @@ elif ind_mode == "Cost per Sq Ft (Bottom-Up)":
 else:
     est_indirect = sum([float(db_state.get(k, v)) for k, v in [("ind_land_est", 9997.75), ("ind_gc_est", 9997.75), ("ind_soft_est", 4998.88), ("ind_r_close_est", 4998.88), ("ind_res_est", 40059.6)]])
 
-baseline_total = est_direct + est_indirect
+# ==========================================
+# ENTERPRISE UPGRADE: SYNC ENGINEERED COSTS
+# ==========================================
+# Pull exact budgets calculated from the new Engineering Modules
+eng_data = db_state.get("engineering", {})
+eng_framing = float(eng_data.get("framing_total_cost", 0.0))
+eng_plumbing = float(eng_data.get("plumbing_total_cost", 0.0))
+eng_electrical = float(eng_data.get("elec_total_cost", 0.0))
+total_engineered_mep = eng_plumbing + eng_electrical
+total_engineered_hard_costs = eng_framing + eng_plumbing + eng_electrical
+
+# We replace the generic top-down baseline with our engineered numbers if they exist
+generic_base_split = est_direct / 5.0 if est_direct > 0 else 0
+
+budget_site = generic_base_split
+budget_framing = eng_framing if eng_framing > 0 else generic_base_split
+budget_mep = total_engineered_mep if total_engineered_mep > 0 else generic_base_split
+budget_finishes = generic_base_split
+budget_contingency = generic_base_split
+
+adjusted_direct_baseline = budget_site + budget_framing + budget_mep + budget_finishes + budget_contingency
+baseline_total = adjusted_direct_baseline + est_indirect
 adjusted_total_cost = baseline_total if ingested_hard_costs == 0 else ingested_hard_costs + max(0, baseline_total - ingested_hard_costs)
 
 # --- LAYOUT SETUP ---
@@ -101,8 +122,17 @@ with col1:
     st.subheader("Project Scope")
     num_units = st.number_input("Total Units/Lots", min_value=1, max_value=200, value=24)
     
-    st.info(f"**🏗️ Est. Baseline:** ${baseline_total:,.2f}")
-    st.info(f"**🤖 AI-Ingested:** ${ingested_hard_costs:,.2f}")
+    st.info(f"**🏗️ Target Baseline:** ${baseline_total:,.2f}")
+    
+    if total_engineered_hard_costs > 0:
+        st.success(
+            f"**📐 Engineered Sync: ${total_engineered_hard_costs:,.0f}**\n\n"
+            f"🪵 Framing: ${eng_framing:,.0f}\n\n"
+            f"🚰 Plumbing: ${eng_plumbing:,.0f}\n\n"
+            f"⚡ Electrical: ${eng_electrical:,.0f}"
+        )
+        
+    st.info(f"**🤖 AI-Ingested Actuals:** ${ingested_hard_costs:,.2f}")
     
     st.subheader("Revenue & Operations")
     monthly_rent = st.number_input(
@@ -190,41 +220,60 @@ with col2:
     st.divider()
     
     # ==========================================
-    # ENTERPRISE UPGRADE: VARIANCE REPORTING
+    # HYBRID VARIANCE REPORTING
     # ==========================================
-    st.subheader("📊 Hard Cost Variance Report (Est. vs Actuals)")
-    st.markdown("Tracks your baseline estimates against real-time actuals ingested via the AI module.")
+    st.subheader("📊 Dynamic Hard Cost Variance Report")
+    st.markdown("Tracks your baseline estimates and synced engineered hard costs against real-time actuals ingested via the AI module.")
     
-    categories = [
-        "Site Work, Foundation & Civil Grading",
-        "Framing, Exterior Shell & Roof",
-        "MEP Rough-Ins",
-        "Interior Finishes & Drywall",
-        "Build Contingency"
+    var_data = [
+        {
+            "Category": "Site Work, Foundation & Civil Grading",
+            "Target Budget": budget_site,
+            "Ingested Actuals": actuals_by_category.get("Site Work, Foundation & Civil Grading", 0.0)
+        },
+        {
+            "Category": "Framing, Exterior Shell & Roof",
+            "Target Budget": budget_framing,
+            "Ingested Actuals": actuals_by_category.get("Framing, Exterior Shell & Roof", 0.0)
+        },
+        {
+            "Category": "MEP (Mechanical, Electrical, Plumbing)",
+            "Target Budget": budget_mep,
+            "Ingested Actuals": actuals_by_category.get("MEP Rough-Ins", 0.0)
+        },
+        {
+            "Category": "Interior Finishes & Drywall",
+            "Target Budget": budget_finishes,
+            "Ingested Actuals": actuals_by_category.get("Interior Finishes & Drywall", 0.0)
+        },
+        {
+            "Category": "Build Contingency",
+            "Target Budget": budget_contingency,
+            "Ingested Actuals": actuals_by_category.get("Build Contingency", 0.0)
+        }
     ]
     
-    # Map the total estimated direct costs roughly across categories for baseline
-    base_split = est_direct / len(categories) if est_direct > 0 else 0
-    
-    var_data = []
-    for cat in categories:
-        act = actuals_by_category.get(cat, 0.0)
-        var = base_split - act
-        var_data.append({
-            "Category": cat,
-            "Baseline Est.": base_split,
-            "Ingested Actuals": act,
-            "Remaining Budget": var,
-            "Status": "🔴 Over Budget" if var < 0 else "🟢 On Track"
-        })
+    final_var_data = []
+    for item in var_data:
+        var = item["Target Budget"] - item["Ingested Actuals"]
+        item["Remaining Budget"] = var
+        item["Status"] = "🔴 Over Budget" if var < 0 else "🟢 On Track"
         
-    var_df = pd.DataFrame(var_data)
+        # Add an indicator if the budget came from the engineering modules
+        if item["Category"] == "Framing, Exterior Shell & Roof" and eng_framing > 0:
+            item["Category"] += " (Engineered Sync)"
+        if item["Category"] == "MEP (Mechanical, Electrical, Plumbing)" and total_engineered_mep > 0:
+            item["Category"] += " (Engineered Sync)"
+            
+        final_var_data.append(item)
+        
+    var_df = pd.DataFrame(final_var_data)
     st.dataframe(
         var_df,
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Baseline Est.": st.column_config.NumberColumn("Baseline Est. ($)", format="$%.2f"),
+            "Target Budget": st.column_config.NumberColumn("Target Budget ($)", format="$%.2f"),
             "Ingested Actuals": st.column_config.NumberColumn("Ingested Actuals ($)", format="$%.2f"),
             "Remaining Budget": st.column_config.NumberColumn("Remaining Budget ($)", format="$%.2f")
         }
