@@ -1,102 +1,128 @@
 import streamlit as st
-import pandas as pd
-from db_ops import get_all_projects_df, create_project, delete_project
+import sqlite3
+import json
 
-st.title("📁 Project & Revision Control")
-st.markdown("Manage your active developments or initialize a new project workspace.")
-
-st.divider()
+st.set_page_config(page_title="Project Control Center", layout="wide")
 
 # ==========================================
-# 1. SELECT EXISTING PROJECT
+# 🔒 SECURITY GUARD
 # ==========================================
-st.subheader("1. Select Existing Project")
+if not st.session_state.get("logged_in"):
+    st.warning("⚠️ Access Restricted: Please log in.")
+    st.stop()
 
-try:
-    projects_df = get_all_projects_df()
-except Exception as e:
-    projects_df = pd.DataFrame()
-    st.error(f"Database error loading projects: {e}")
+DB_FILE = "wickboldt_projects.db"
 
-if projects_df is None or projects_df.empty:
-    st.info("No projects found in the database. Create one below to get started.")
-else:
-    st.dataframe(projects_df, use_container_width=True, hide_index=True)
-    
-    selected_project = st.selectbox(
-        "Select a project to load into your workspace:",
-        options=projects_df["project_name"].tolist() if "project_name" in projects_df.columns else []
-    )
-    
-    # Clean rerun shifts app.py from State 2 to State 3 (unlocking all enterprise workspace tabs)
-    if st.button("Load Project Workspace", type="primary", use_container_width=True):
-        if selected_project:
-            st.session_state["active_project"] = selected_project
-            st.rerun()
-        else:
-            st.warning("Please select a valid project.")
+# Match your session state keys (defaults to checking email first, then username)
+user_email = st.session_state.get("email", st.session_state.get("username", "Unknown"))
+role = st.session_state.get("role", "Viewer")
 
-st.divider()
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("CREATE TABLE IF NOT EXISTS projects (project_name TEXT PRIMARY KEY, project_data TEXT)")
+    conn.commit()
+    conn.close()
 
-# ==========================================
-# 2. CREATE NEW PROJECT
-# ==========================================
-st.subheader("2. Create New Project")
-
-with st.form("create_project_form"):
-    new_proj_name = st.text_input("Project Name (e.g., Rogers Moore Parkway - Phase 1)")
+def get_authorized_projects():
+    conn = sqlite3.connect(DB_FILE)
     
-    new_proj_phase = st.selectbox(
-        "Development Phase", 
-        ["Land Acquisition", "Entitlement", "Horizontal / Civil", "Vertical Construction", "Lease-Up & Stabilization"]
-    )
+    # 1. Get ALL projects
+    try:
+        cursor = conn.execute("SELECT project_name FROM projects")
+        all_projects = [row[0] for row in cursor.fetchall()]
+    except sqlite3.OperationalError:
+        all_projects = []
     
-    new_proj_notes = st.text_area("Initial Notes / Description")
-    
-    submit_create = st.form_submit_button("Initialize New Project", use_container_width=True)
-    
-    if submit_create:
-        if not new_proj_name.strip():
-            st.error("Project Name cannot be empty.")
-        else:
-            try:
-                success, msg = create_project(new_proj_name, new_proj_phase, new_proj_notes)
-                if success:
-                    st.session_state["active_project"] = new_proj_name
-                    st.rerun()
-                else:
-                    st.error(msg)
-            except Exception as e:
-                st.error(f"Error creating project: {e}")
-
-# ==========================================
-# 3. ADMIN ZONE: DELETE PROJECT
-# ==========================================
-if st.session_state.get("role") == "Admin":
-    st.markdown("---")
-    with st.expander("⚠️ Admin: Delete a Project (Danger Zone)", expanded=False):
-        st.error("Warning: Deleting a project is permanent. It will destroy all associated proformas and schedules.")
-        
-        if projects_df is not None and not projects_df.empty and "project_name" in projects_df.columns:
-            project_names = [name for name in projects_df['project_name'].tolist() if name != "__MASTER_LIBRARY__"]
-            
-            if project_names:
-                project_to_delete = st.selectbox("Select Project to Delete", project_names, key="del_proj_select")
+    # 2. Get User's authorized projects
+    if role == "Admin":
+        conn.close()
+        return all_projects
+    else:
+        try:
+            # Safely query the assigned_projects column for this specific user
+            cursor = conn.execute("SELECT assigned_projects FROM users WHERE email=?", (user_email,))
+            row = cursor.fetchone()
+            if not row:
+                cursor = conn.execute("SELECT assigned_projects FROM users WHERE username=?", (user_email,))
+                row = cursor.fetchone()
                 
-                if st.button("🗑️ Permanently Delete Project", use_container_width=True):
-                    current_user = st.session_state.get("user_email", "Admin")
+            conn.close()
+            
+            if row and row[0]:
+                allowed = json.loads(row[0])
+                # Return the intersection: ensures the project actually exists in the DB
+                return [p for p in all_projects if p in allowed]
+        except Exception:
+            conn.close()
+            return []
+        return []
+
+init_db()
+
+st.title("🎛️ Project Control Center")
+st.markdown(f"**Logged in as:** `{user_email}` (Role: `{role}`)")
+st.divider()
+
+col1, col2 = st.columns(2, gap="large")
+
+# --- SELECT ACTIVE PROJECT (ISOLATED) ---
+with col1:
+    st.subheader("Select Active Project")
+    authorized_projects = get_authorized_projects()
+    
+    if authorized_projects:
+        selected_project = st.selectbox("Your Authorized Developments:", authorized_projects)
+        if st.button("🚀 Load Project Workspace", type="primary"):
+            st.session_state["active_project"] = selected_project
+            st.success(f"Workspace loaded for: **{selected_project}**. You may now navigate the sidebar modules.")
+    else:
+        st.warning("⚠️ You currently have no authorized projects assigned to your account. Please contact an Administrator.")
+
+# --- CREATE NEW PROJECT (ADMIN/MANAGER ONLY) ---
+with col2:
+    if role in ["Admin", "Manager"]:
+        st.subheader("Initialize New Development")
+        with st.form("new_project_form", clear_on_submit=True):
+            new_project_name = st.text_input("Project / Subdivision Name")
+            if st.form_submit_button("🏗️ Create Project"):
+                if new_project_name:
+                    conn = sqlite3.connect(DB_FILE)
                     try:
-                        success, msg = delete_project(project_to_delete, current_user)
-                        if success:
-                            st.success(f"Project '{project_to_delete}' has been wiped from the cloud.")
-                            if st.session_state.get("active_project") == project_to_delete:
-                                st.session_state["active_project"] = None
-                            st.rerun()
-                        else:
-                            st.error(f"Failed to delete: {msg}")
-                    except Exception as e:
-                        st.error(f"Error deleting project: {e}")
-            else:
-                st.info("No active projects available to delete.")
-        else:
-            st.info("No projects available to delete.")
+                        conn.execute("INSERT INTO projects (project_name, project_data) VALUES (?, ?)", (new_project_name, "{}"))
+                        conn.commit()
+                        st.success(f"Project '{new_project_name}' successfully created!")
+                        
+                        # If a Manager creates a project, automatically grant them access to it
+                        if role == "Manager":
+                            try:
+                                cursor = conn.execute("SELECT assigned_projects FROM users WHERE email=?", (user_email,))
+                                row = cursor.fetchone()
+                                if not row:
+                                    cursor = conn.execute("SELECT assigned_projects FROM users WHERE username=?", (user_email,))
+                                    row = cursor.fetchone()
+                                
+                                allowed = json.loads(row[0]) if row and row[0] else []
+                                if new_project_name not in allowed:
+                                    allowed.append(new_project_name)
+                                    
+                                try:
+                                    conn.execute("UPDATE users SET assigned_projects=? WHERE email=?", (json.dumps(allowed), user_email))
+                                except sqlite3.OperationalError:
+                                    conn.execute("UPDATE users SET assigned_projects=? WHERE username=?", (json.dumps(allowed), user_email))
+                                conn.commit()
+                            except Exception:
+                                pass # Admin can manually fix if mapping fails
+                            
+                        st.rerun()
+                    except sqlite3.IntegrityError:
+                        st.error(f"Project '{new_project_name}' already exists.")
+                    finally:
+                        conn.close()
+                else:
+                    st.error("Project name cannot be empty.")
+    else:
+        st.info("💡 Project creation is restricted to Administrators and Managers. You have Viewer/Investor access only.")
+
+st.divider()
+if st.session_state.get("active_project"):
+    st.success(f"✅ **Currently Active Workspace:** `{st.session_state['active_project']}`")
