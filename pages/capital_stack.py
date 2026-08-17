@@ -3,8 +3,10 @@ import pandas as pd
 import sqlite3
 import json
 
+st.set_page_config(page_title="Capital Stack & Financing", layout="wide")
+
 if not st.session_state.get("active_project"):
-    st.warning("⚠️ Access Restricted: Please load a project from the Control tab.")
+    st.warning("⚠️ Access Restricted: Please load an authorized project from the Control tab.")
     st.stop()
 
 # ==========================================
@@ -139,9 +141,8 @@ def render_operating_assumptions(phase_name, default_rent):
 
 
 # --- HEADER STYLING ---
-st.markdown("### 🏗️ Wickboldt Capital: Moore Parkway Portal")
-st.markdown("*Today's Foundation. Tomorrow's Legacy.*")
-st.success(f"🟢 **Active Project:** `{st.session_state['active_project']}` &nbsp;&nbsp;|&nbsp;&nbsp; 📂 **Active Revision:** Comprehensive Proforma Baseline")
+st.markdown("### 🏗️ Wickboldt Capital: Master Financial Structuring")
+st.success(f"🟢 **Active Workspace:** `{st.session_state['active_project']}`")
 st.markdown("---")
 
 st.header("Capital Stack & Financing Structure")
@@ -290,30 +291,49 @@ with tab_refi:
 
 
 # ==========================================
-# 4. SETTLEMENT & CASH-OUT
+# 4. SETTLEMENT & CASH-OUT (ENTERPRISE UPGRADE)
 # ==========================================
 with tab_settle:
-    st.subheader("Refinance Takeout, Loan Payoff & Developer Cash-Out Settlement")
+    st.subheader("Refinance Takeout & Settlement Waterfall")
+    st.markdown("Visual breakdown of the final takeout transaction and developer equity extraction.")
 
     net_cash_out = refi_loan_amt - const_limit - total_refi_closing - total_pre_con
 
-    settlement_data = {
-        "Settlement Line Item": [
-            "Gross Permanent Refinance Loan Proceeds",
-            "Less: Construction Loan Payoff",
-            "Less: Refinance Closing Costs & Points",
-            "Less: Initial Pre-Construction Capital Payoff"
-        ],
-        "Amount ($)": [
-            f"${refi_loan_amt:,.2f}",
-            f"-${const_limit:,.2f}",
-            f"-${total_refi_closing:,.2f}",
-            f"-${total_pre_con:,.2f}"
-        ]
-    }
-    st.table(pd.DataFrame(settlement_data))
-
+    # Enterprise Metric Highlight
+    s1, s2, s3 = st.columns(3)
+    s1.metric("Gross Refinance Proceeds", f"${refi_loan_amt:,.2f}")
+    s2.metric("Total Capital Obligations", f"${(const_limit + total_refi_closing + total_pre_con):,.2f}")
+    
     if net_cash_out >= 0:
-        st.success(f"🎉 **Net Developer Cash-Out at Stabilization: \${net_cash_out:,.2f}**\n\n*(Fully recovers pre-con basis & yields cash-out profit)*")
+        s3.metric("Net Developer Cash-Out", f"${net_cash_out:,.2f}", "+ Profit Yielded")
     else:
-        st.warning(f"⚖️ **Net Developer Cash-Out at Stabilization: \${net_cash_out:,.2f}**\n\n*(Additional equity required to close)*")
+        s3.metric("Capital Shortfall to Close", f"${abs(net_cash_out):,.2f}", "- Additional Equity Required")
+
+    st.divider()
+
+    col_table, col_summary = st.columns([2, 1], gap="large")
+    
+    with col_table:
+        st.markdown("**Settlement Ledger**")
+        settlement_data = {
+            "Settlement Line Item": [
+                "Gross Permanent Refinance Loan Proceeds",
+                "Less: Construction Loan Principal Payoff",
+                "Less: Refinance Closing Costs & Rate Buy-Down Points",
+                "Less: Initial Pre-Construction Capital Recovery"
+            ],
+            "Amount ($)": [
+                f"${refi_loan_amt:,.2f}",
+                f"-${const_limit:,.2f}",
+                f"-${total_refi_closing:,.2f}",
+                f"-${total_pre_con:,.2f}"
+            ]
+        }
+        st.dataframe(pd.DataFrame(settlement_data), use_container_width=True, hide_index=True)
+        
+    with col_summary:
+        st.markdown("**Capital Velocity Analysis**")
+        if net_cash_out >= 0:
+            st.success(f"**Stabilized Extraction Achieved.**\nThe permanent takeout facility is sufficient to retire the `{const_limit:,.0f}` construction note, cover all settlement charges, fully reimburse the original `{total_pre_con:,.0f}` pre-construction capital basis, and extract a net `{net_cash_out:,.0f}` liquid dividend.")
+        else:
+            st.error(f"**Capital Trapped.**\nThe permanent takeout facility fails to cover the cumulative basis. An additional cash injection of `${abs(net_cash_out):,.2f}` is required at the closing table to satisfy the construction note payoff and settlement charges.")
