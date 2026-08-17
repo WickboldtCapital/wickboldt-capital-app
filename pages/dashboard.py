@@ -64,15 +64,17 @@ for _, proj in projects_df.iterrows():
         p_budget = 0.0
     total_budget += p_budget
     
-    # 3. Safety, Vault, and LMS Metrics (Safely Extracted)
+    # 3. Safety, Vault, LMS, and Due Diligence Metrics
     toolbox_count = 0
     vault_count = 0
     lms_count = 0
+    comp_dd = 0
+    total_dd_items = 12 # 4 Site + 4 Legal + 4 Engineering items
     
     try:
         conn = sqlite3.connect("wickboldt_projects.db")
         
-        # Extract JSON state data (Toolbox & Vault)
+        # Extract JSON state data (Toolbox, Vault, DD Checklists)
         table_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'").fetchone()
         if table_check:
             row = conn.execute("SELECT project_data FROM projects WHERE project_name=?", (p_name,)).fetchone()
@@ -83,6 +85,10 @@ for _, proj in projects_df.iterrows():
                 # Vault
                 vault_docs = p_data.get("vault_docs", {})
                 vault_count = sum(len(docs) for docs in vault_docs.values())
+                # Due Diligence
+                dd_checklists = p_data.get("dd_checklists", {})
+                if dd_checklists:
+                    comp_dd = sum(sum(items.values()) for items in dd_checklists.values() if isinstance(items, dict))
                 
         # Extract LMS Compliance data
         lms_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='lms_training_logs'").fetchone()
@@ -96,11 +102,13 @@ for _, proj in projects_df.iterrows():
     total_safety_talks += toolbox_count
     total_vault_files += vault_count
     total_lms_certs += lms_count
+    dd_progress_pct = int((comp_dd / total_dd_items) * 100)
             
     # Append to Master List
     portfolio_data.append({
         "Project": p_name,
         "Current Phase": p_phase,
+        "DD Readiness": f"{dd_progress_pct}%",
         "Schedule Progress": f"{progress_pct}% ({p_comp_m}/{p_total_m})",
         "Total Budget Logged": f"${p_budget:,.2f}",
         "Safety Audits": toolbox_count,
@@ -132,6 +140,11 @@ st.divider()
 # ==========================================
 st.subheader("🏢 Master Portfolio Breakdown")
 portfolio_df = pd.DataFrame(portfolio_data)
+
+# Reorder columns to put DD Readiness next to Schedule Progress
+cols = ["Project", "Current Phase", "DD Readiness", "Schedule Progress", "Total Budget Logged", "Safety Audits", "Vault Files", "Active Certifications"]
+portfolio_df = portfolio_df[cols]
+
 st.dataframe(portfolio_df, use_container_width=True, hide_index=True)
 
 # ==========================================
