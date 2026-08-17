@@ -91,7 +91,7 @@ else:
 # ==========================================
 # ENTERPRISE UPGRADE: SYNC ENGINEERED COSTS
 # ==========================================
-# Pull exact budgets calculated from the new Engineering & Architecture Modules
+# Pull exact budgets calculated from the new Engineering, Architecture, QC, & Safety Modules
 eng_data = db_state.get("engineering", {})
 estimates_data = db_state.get("estimates", {})
 
@@ -102,8 +102,12 @@ eng_electrical = float(eng_data.get("elec_total_cost", 0.0))
 arch_exterior = float(estimates_data.get("Exterior Shell Finishes", 0.0))
 arch_interior = float(estimates_data.get("Interior Finishes & Drywall", 0.0))
 
+qc_cost = float(estimates_data.get("Quality Control & Testing", 0.0))
+safety_cost = float(estimates_data.get("Jobsite Safety & Compliance", 0.0))
+total_ops_cost = qc_cost + safety_cost
+
 total_engineered_mep = eng_plumbing + eng_electrical
-total_engineered_hard_costs = eng_framing + arch_exterior + total_engineered_mep + arch_interior
+total_engineered_hard_costs = eng_framing + arch_exterior + total_engineered_mep + arch_interior + total_ops_cost
 
 # We replace the generic top-down baseline with our engineered numbers if they exist
 generic_base_split = est_direct / 5.0 if est_direct > 0 else 0
@@ -121,7 +125,9 @@ budget_finishes = arch_interior if arch_interior > 0 else generic_base_split
 budget_contingency = generic_base_split
 
 adjusted_direct_baseline = budget_site + budget_framing_ext + budget_mep + budget_finishes + budget_contingency
-baseline_total = adjusted_direct_baseline + est_indirect
+
+# Inject Ops Cost (QC & Safety) into the Total Baseline
+baseline_total = adjusted_direct_baseline + est_indirect + total_ops_cost
 adjusted_total_cost = baseline_total if ingested_hard_costs == 0 else ingested_hard_costs + max(0, baseline_total - ingested_hard_costs)
 
 # --- LAYOUT SETUP ---
@@ -142,7 +148,8 @@ with col1:
             f"🪵 Framing & Shell: ${(eng_framing + arch_exterior):,.0f}\n\n"
             f"🚰 Plumbing: ${eng_plumbing:,.0f}\n\n"
             f"⚡ Electrical: ${eng_electrical:,.0f}\n\n"
-            f"🎨 Interior Finishes: ${arch_interior:,.0f}"
+            f"🎨 Interior Finishes: ${arch_interior:,.0f}\n\n"
+            f"🛡️ Safety & QC: ${total_ops_cost:,.0f}"
         )
         
     st.info(f"**🤖 AI-Ingested Actuals:** ${ingested_hard_costs:,.2f}")
@@ -263,6 +270,11 @@ with col2:
             "Category": "Build Contingency",
             "Target Budget": budget_contingency,
             "Ingested Actuals": actuals_by_category.get("Build Contingency", 0.0)
+        },
+        {
+            "Category": "Jobsite Safety & Quality Control",
+            "Target Budget": total_ops_cost,
+            "Ingested Actuals": actuals_by_category.get("Jobsite Safety & Quality Control", 0.0)
         }
     ]
     
@@ -278,6 +290,8 @@ with col2:
         if item["Category"] == "MEP (Mechanical, Electrical, Plumbing)" and total_engineered_mep > 0:
             item["Category"] += " (Engineered Sync)"
         if item["Category"] == "Interior Finishes & Drywall" and arch_interior > 0:
+            item["Category"] += " (Engineered Sync)"
+        if item["Category"] == "Jobsite Safety & Quality Control" and total_ops_cost > 0:
             item["Category"] += " (Engineered Sync)"
             
         final_var_data.append(item)
