@@ -13,14 +13,13 @@ st.caption("Live tracking of architectural updates, feature deployments, and upc
 st.divider()
 
 st.markdown("""
-### 📋 Summary of Changes (Current Revision: Rev 5.0)
+### 📋 Summary of Changes (Current Revision: Rev 6.0)
 *August 2026*
 
-* **User Management & Security:** Deployed the admin-only User Management console with active role assignment (Admin, Manager, Investor, Viewer) and a live Security Audit Log.
-* **AI Bid Ingestion Pipeline:** Built the `bid_intake` module for multi-line extraction, interactive verification, and bulk database commits of real-world contractor costs.
-* **Live Variance Reporting:** Rewired the Proforma to pull AI-ingested actuals against baseline estimates, creating an automated Hard Cost Variance tracker and dynamic Yield on Cost (YOC) calculation.
-* **Cash Flow Forecasting:** Launched the interactive draw schedule generator, enabling precise capital allocation mapping and S-Curve visualization for lender presentations.
-* **UI Flash Eradication:** Applied conditional `initial_sidebar_state` page configurations and CSS delay tactics to completely mask the Streamlit sidebar React flash on the authentication screen.
+* **Complete MEP Engineering Suite:** Deployed enterprise-grade Mechanical, Electrical, and Plumbing modules. Includes ACCA Manual J/S/D HVAC load calculations, IPC WSFU/DFU plumbing sizing with gas loads, and NEC Article 220 electrical service load modeling.
+* **Structural & Foundation Engineering:** Swapped ICF logic for a dynamic monolithic/stem-wall concrete yardage calculator with FEMA BFE tracking. Deployed comprehensive framing takeoffs including 24" O.C. Advanced Framing (OVE) and hybrid SIPs panel configurations.
+* **Proforma ERP Integration:** Hard-wired the new engineering modules directly into the Proforma. The financial engine now intercepts granular MEP and Framing budgets, dynamically replacing generic baselines within the Variance Report.
+* **Dual-Audience Submittals:** Upgraded all engineering modules to automatically generate both municipal-ready Code Compliance submittals (for inspectors) and granular Scope of Work checklists (for subcontractor bidding).
 
 ---
 
@@ -42,12 +41,17 @@ st.markdown("""
 - [x] AI Bid Ingestion and interactive data parsing (`pages/bid_intake.py`).
 
 #### 🏗️ Phase 3: Engineering & Operations (Active)
-- [ ] ACCA Manual J/S/D HVAC Calculations Integration.
-- [ ] Structural Framing & Foundation Concrete volume estimators.
-- [ ] Safety & Quality Control logging (Toolbox Talks, Audits).
+- [x] Civil & Foundation Concrete Engineering (`pages/eng_foundation.py`).
+- [x] Structural Framing & SIPs Configuration (`pages/eng_framing.py`).
+- [x] ACCA Manual J/S/D HVAC Calculations (`pages/eng_hvac.py`).
+- [x] IPC Plumbing, Water & Gas Load Engineering (`pages/eng_plumbing.py`).
+- [x] NEC Article 220 Electrical Panel Sizing (`pages/eng_electrical.py`).
 - [ ] Master Architecture & Specs (`pages/architecture.py`).
+- [ ] Quality Control & Phase Inspections (`pages/quality.py`).
+- [ ] Jobsite Safety & OSHA Compliance (`pages/safety.py`).
 
 #### 🏢 Phase 4: Master Company Library & Governance (Upcoming)
+- [ ] Subcontractor CRM & Bid Management (`pages/subs.py`).
 - [ ] Secure Document Vault for Deeds, Loans, and Permits.
 - [ ] Standard Operating Procedures (SOP) & LMS tracking.
 - [ ] Marketing & Due Diligence asset management.
@@ -56,6 +60,7 @@ st.markdown("""
 
 ### 📜 Master Update Log
 
+* **Rev 6.0 (Aug 2026):** Deployed complete MEP suite (HVAC, Plumbing, Electrical), Structural/Foundation upgrades, and live Proforma ERP synchronization.
 * **Rev 5.0 (Aug 2026):** User Management, Security Logs, AI Bid Ingestion, Live Proforma Variance, Cash Flow Forecasting, UI Flash Suppression.
 * **Rev 4.0 (Aug 2026):** Strict Auth-gating, FPDF2 Deal Packets, Capital Stack calculations, Full Sidebar restoration.
 * **Rev 3.0 (Aug 2026):** Multi-tenant DB integration, session state architecture overhaul.
