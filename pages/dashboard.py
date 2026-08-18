@@ -83,25 +83,33 @@ def compile_portfolio_metrics(projects_df):
         toolbox_count, vault_count, lms_count, comp_dd = 0, 0, 0, 0
         total_dd_items = 12 
         
+        conn = None  # Setup connection variable outside try block
         try:
-            conn = sqlite3.connect(DB_FILE)
+            # Added a 10-second timeout so it never freezes infinitely
+            conn = sqlite3.connect(DB_FILE, timeout=10)
             table_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'").fetchone()
             if table_check:
                 row = conn.execute("SELECT project_data FROM projects WHERE project_name=?", (p_name,)).fetchone()
                 if row and row[0]:
-                    p_data = json.loads(row[0])
-                    toolbox_count = len(p_data.get("toolbox_talks", []))
-                    vault_count = sum(len(docs) for docs in p_data.get("vault_docs", {}).values())
-                    dd_checklists = p_data.get("dd_checklists", {})
-                    if dd_checklists:
-                        comp_dd = sum(sum(items.values()) for items in dd_checklists.values() if isinstance(items, dict))
+                    try:
+                        p_data = json.loads(row[0])
+                        toolbox_count = len(p_data.get("toolbox_talks", []))
+                        vault_count = sum(len(docs) for docs in p_data.get("vault_docs", {}).values())
+                        dd_checklists = p_data.get("dd_checklists", {})
+                        if dd_checklists:
+                            comp_dd = sum(sum(items.values()) for items in dd_checklists.values() if isinstance(items, dict))
+                    except json.JSONDecodeError:
+                        pass # Ignore corrupted JSON rows without crashing
             
             lms_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='lms_training_logs'").fetchone()
             if lms_check:
                 lms_count = conn.execute("SELECT COUNT(*) FROM lms_training_logs WHERE project_name=?", (p_name,)).fetchone()[0]
-            conn.close()
         except Exception:
             pass
+        finally:
+            # THIS IS THE VITAL FIX: It guarantees the database lock is released!
+            if conn:
+                conn.close()
             
         t_safety += toolbox_count
         t_vault += vault_count
@@ -173,8 +181,10 @@ st.dataframe(portfolio_df, use_container_width=True, hide_index=True)
 # ==========================================
 st.divider()
 st.subheader("🛡️ Recent Global Compliance (LMS)")
+conn = None
 try:
-    conn = sqlite3.connect(DB_FILE)
+    # Also added timeout and finally block here for ultimate safety
+    conn = sqlite3.connect(DB_FILE, timeout=10)
     lms_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='lms_training_logs'").fetchone()
     
     if lms_check:
@@ -194,6 +204,8 @@ try:
             st.info("No recent training certifications logged across your authorized portfolio.")
     else:
         st.info("LMS Compliance module initializing...")
-    conn.close()
 except Exception:
     st.error("Unable to load recent compliance logs.")
+finally:
+    if conn:
+        conn.close()
