@@ -72,37 +72,40 @@ def delete_user(email, admin_email="System"):
 # ==========================================
 # 📁 PROJECT CONTROL (MULTI-TENANT ISOLATION)
 # ==========================================
-def ensure_project_user_column():
-    """Safely ensures the user_email column exists for multi-tenancy."""
+def ensure_project_schema():
+    """Safely ensures the user_email and portfolio_name columns exist."""
     try:
         with get_transaction() as conn:
             conn.execute(text("ALTER TABLE projects ADD COLUMN user_email VARCHAR(255)"))
-    except Exception:
-        pass # Column already exists
+    except Exception: pass
+    try:
+        with get_transaction() as conn:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN portfolio_name VARCHAR(255) DEFAULT 'Master Portfolio'"))
+    except Exception: pass
 
 @st.cache_data(ttl=60)
 def get_user_projects_df(user_email, role):
-    """Fetches only projects belonging to the user, unless they are an Admin."""
-    ensure_project_user_column()
+    """Fetches projects belonging to the user, with portfolio mapping."""
+    ensure_project_schema()
     with get_read_connection() as conn: 
-        # Case-Insensitive check applied here
         if role and role.lower() == "admin":
-            return pd.read_sql(text("SELECT project_id, project_name, phase, notes, user_email FROM projects"), conn)
+            return pd.read_sql(text("SELECT project_id, project_name, phase, notes, user_email, COALESCE(portfolio_name, 'Master Portfolio') as portfolio_name FROM projects"), conn)
         else:
-            return pd.read_sql(text("SELECT project_id, project_name, phase, notes, user_email FROM projects WHERE user_email = :email"), conn, params={"email": user_email})
+            return pd.read_sql(text("SELECT project_id, project_name, phase, notes, user_email, COALESCE(portfolio_name, 'Master Portfolio') as portfolio_name FROM projects WHERE user_email = :email"), conn, params={"email": user_email})
 
 @st.cache_data(ttl=60)
 def get_all_projects_df():
-    ensure_project_user_column()
+    ensure_project_schema()
     with get_read_connection() as conn: 
-        return pd.read_sql(text("SELECT project_id, project_name, phase, notes, user_email FROM projects"), conn)
+        return pd.read_sql(text("SELECT project_id, project_name, phase, notes, user_email, COALESCE(portfolio_name, 'Master Portfolio') as portfolio_name FROM projects"), conn)
 
-def create_project(name, phase, notes, user_email="System"):
-    ensure_project_user_column()
+def create_project(name, phase, notes, user_email="System", portfolio="Master Portfolio"):
+    ensure_project_schema()
     try:
         with get_transaction() as conn: 
-            conn.execute(text("INSERT INTO projects (project_name, phase, notes, user_email) VALUES (:name, :phase, :notes, :email)"), {"name": name, "phase": phase, "notes": notes, "email": user_email})
-        log_audit_action(user_email, "CREATE_PROJECT", f"Created project: {name}")
+            conn.execute(text("INSERT INTO projects (project_name, phase, notes, user_email, portfolio_name) VALUES (:name, :phase, :notes, :email, :port)"), 
+                         {"name": name, "phase": phase, "notes": notes, "email": user_email, "port": portfolio})
+        log_audit_action(user_email, "CREATE_PROJECT", f"Created project: {name} in {portfolio}")
         st.cache_data.clear()
         return True, "Success"
     except Exception as e: 
@@ -111,7 +114,6 @@ def create_project(name, phase, notes, user_email="System"):
 def delete_project(project_name, user_email="System"):
     try:
         with get_transaction() as conn:
-            # Note: Also deleting from project_milestones now to keep DB clean
             conn.execute(text("DELETE FROM project_milestones WHERE project_name = :name"), {"name": project_name})
             conn.execute(text("DELETE FROM projects WHERE project_name = :name"), {"name": project_name})
         log_audit_action(user_email, "DELETE_PROJECT", f"Deleted project: {project_name}")
