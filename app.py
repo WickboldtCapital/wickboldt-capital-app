@@ -167,7 +167,7 @@ else:
         ],
         "Business & Governance": [
             st.Page("pages/documents.py", title="Secure Document Library", icon="🔒"),
-            st.Page("pages/diligence.py", title="Due Diligence", icon="📑"),
+            st.Page("pages/due_diligence.py", title="Due Diligence", icon="📑"),
             st.Page("pages/marketing.py", title="Marketing Library", icon="📢"),
             st.Page("pages/governance.py", title="Master Company Library", icon="🏢"),
             st.Page("pages/roadmap.py", title="Enterprise Roadmap", icon="🚀"),
