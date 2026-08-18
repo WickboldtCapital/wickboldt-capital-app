@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import json
+import os
 
 st.set_page_config(page_title="Capital Stack & Financing", layout="wide")
 
@@ -12,7 +13,11 @@ if not st.session_state.get("active_project"):
 # ==========================================
 # 💾 INSTANT AUTO-SAVE & GLOBAL DB ENGINE
 # ==========================================
-DB_FILE = "wickboldt_projects.db"
+# --- ENTERPRISE PERSISTENT STORAGE ROUTING ---
+if os.path.exists("/app/data"):
+    DB_FILE = "/app/data/wickboldt_projects.db"
+else:
+    DB_FILE = "wickboldt_projects.db"
 
 def init_db_schema():
     conn = sqlite3.connect(DB_FILE)
