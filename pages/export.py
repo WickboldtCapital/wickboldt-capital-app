@@ -1,6 +1,7 @@
 import streamlit as st
 import sqlite3
 import json
+import pd
 import pandas as pd
 from datetime import date
 from fpdf import FPDF
@@ -22,7 +23,11 @@ if not active_project:
     st.warning("⚠️ Access Restricted: Please load an authorized project from the Control tab.")
     st.stop()
 
-DB_FILE = "wickboldt_projects.db"
+# --- ENTERPRISE PERSISTENT STORAGE ROUTING ---
+if os.path.exists("/app/data"):
+    DB_FILE = "/app/data/wickboldt_projects.db"
+else:
+    DB_FILE = "wickboldt_projects.db"
 
 # ==========================================
 # DATA FETCHING HELPERS
