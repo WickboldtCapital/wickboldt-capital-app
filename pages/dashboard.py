@@ -30,98 +30,112 @@ else:
     st.markdown(f"High-level portfolio overview of **your authorized developments** (`{user_email}`).")
 st.divider()
 
-# Fetch projects filtered by user access level (Multi-Tenant safe via db_ops)
-projects_df = get_user_projects_df(user_email, role)
+# 1. Fetch raw projects from Postgres to find unique portfolios
+raw_projects_df = get_user_projects_df(user_email, role)
 
-if projects_df.empty:
+if raw_projects_df.empty:
     st.info("No active projects found for your account. Create a new development in the Project Control tab.")
     st.stop()
 
-# ==========================================
-# PORTFOLIO AGGREGATION ENGINE
-# ==========================================
-total_projects = len(projects_df)
-total_budget = 0.0
-total_milestones = 0
-total_milestones_completed = 0
-total_safety_talks = 0
-total_vault_files = 0
-total_lms_certs = 0
-portfolio_data = []
+# 2. Extract Portfolios and create a dropdown filter
+available_portfolios = sorted(raw_projects_df['portfolio_name'].unique().tolist()) if 'portfolio_name' in raw_projects_df.columns else ["Master Portfolio"]
+col_p, _ = st.columns([1, 2])
+selected_portfolio = col_p.selectbox("📁 Select Portfolio View", ["All Portfolios"] + available_portfolios)
 
-# Analyze each authorized project
-for _, proj in projects_df.iterrows():
-    p_name = proj['project_name']
-    p_phase = proj.get('phase', 'Active') # Safe fallback if phase column missing
-    
-    # 1. Schedule Metrics
-    m_df = get_project_milestones(p_name)
-    p_total_m = len(m_df)
-    p_comp_m = len(m_df[m_df['is_complete'] == 1]) if not m_df.empty else 0
-    
-    total_milestones += p_total_m
-    total_milestones_completed += p_comp_m
-    progress_pct = int((p_comp_m / p_total_m) * 100) if p_total_m > 0 else 0
-    
-    # 2. Budget Metrics
-    b_df = get_project_budget(p_name)
-    if not b_df.empty and 'total_cost' in b_df.columns:
-        p_budget = b_df['total_cost'].sum()
-    else:
-        p_budget = 0.0
-    total_budget += p_budget
-    
-    # 3. Safety, Vault, LMS, and Due Diligence Metrics
-    toolbox_count = 0
-    vault_count = 0
-    lms_count = 0
-    comp_dd = 0
-    total_dd_items = 12 # 4 Site + 4 Legal + 4 Engineering items
-    
-    try:
-        conn = sqlite3.connect(DB_FILE)
+# Filter the dataframe BEFORE doing the heavy math
+if selected_portfolio != "All Portfolios":
+    filtered_projects_df = raw_projects_df[raw_projects_df['portfolio_name'] == selected_portfolio] if 'portfolio_name' in raw_projects_df.columns else raw_projects_df
+else:
+    filtered_projects_df = raw_projects_df
+
+# ==========================================
+# ⚡ HIGH-SPEED CACHED AGGREGATION ENGINE
+# ==========================================
+# Now the cache is bound directly to the filtered dataframe. It only calculates the projects you asked to see!
+@st.cache_data(ttl=60, show_spinner="Aggregating enterprise metrics...")
+def compile_portfolio_metrics(projects_df):
+    if projects_df.empty:
+        return None
         
-        # Extract JSON state data (Toolbox, Vault, DD Checklists)
-        table_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'").fetchone()
-        if table_check:
-            row = conn.execute("SELECT project_data FROM projects WHERE project_name=?", (p_name,)).fetchone()
-            if row and row[0]:
-                p_data = json.loads(row[0])
-                # Toolbox
-                toolbox_count = len(p_data.get("toolbox_talks", []))
-                # Vault
-                vault_docs = p_data.get("vault_docs", {})
-                vault_count = sum(len(docs) for docs in vault_docs.values())
-                # Due Diligence
-                dd_checklists = p_data.get("dd_checklists", {})
-                if dd_checklists:
-                    comp_dd = sum(sum(items.values()) for items in dd_checklists.values() if isinstance(items, dict))
+    t_projects = len(projects_df)
+    t_budget, t_milestones, t_comp_milestones, t_safety, t_vault, t_lms = 0.0, 0, 0, 0, 0, 0
+    p_data_list = []
+    
+    for _, proj in projects_df.iterrows():
+        p_name = proj['project_name']
+        p_phase = proj.get('phase', 'Active')
+        
+        # 1. Schedule Metrics
+        m_df = get_project_milestones(p_name)
+        p_total_m = len(m_df)
+        p_comp_m = len(m_df[m_df['is_complete'] == 1]) if not m_df.empty else 0
+        
+        t_milestones += p_total_m
+        t_comp_milestones += p_comp_m
+        progress_pct = int((p_comp_m / p_total_m) * 100) if p_total_m > 0 else 0
+        
+        # 2. Budget Metrics
+        b_df = get_project_budget(p_name)
+        p_budget = b_df['total_cost'].sum() if not b_df.empty and 'total_cost' in b_df.columns else 0.0
+        t_budget += p_budget
+        
+        # 3. Local JSON Metrics
+        toolbox_count, vault_count, lms_count, comp_dd = 0, 0, 0, 0
+        total_dd_items = 12 
+        
+        try:
+            conn = sqlite3.connect(DB_FILE)
+            table_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'").fetchone()
+            if table_check:
+                row = conn.execute("SELECT project_data FROM projects WHERE project_name=?", (p_name,)).fetchone()
+                if row and row[0]:
+                    p_data = json.loads(row[0])
+                    toolbox_count = len(p_data.get("toolbox_talks", []))
+                    vault_count = sum(len(docs) for docs in p_data.get("vault_docs", {}).values())
+                    dd_checklists = p_data.get("dd_checklists", {})
+                    if dd_checklists:
+                        comp_dd = sum(sum(items.values()) for items in dd_checklists.values() if isinstance(items, dict))
+            
+            lms_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='lms_training_logs'").fetchone()
+            if lms_check:
+                lms_count = conn.execute("SELECT COUNT(*) FROM lms_training_logs WHERE project_name=?", (p_name,)).fetchone()[0]
+            conn.close()
+        except Exception:
+            pass
+            
+        t_safety += toolbox_count
+        t_vault += vault_count
+        t_lms += lms_count
+        dd_progress_pct = int((comp_dd / total_dd_items) * 100)
                 
-        # Extract LMS Compliance data
-        lms_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='lms_training_logs'").fetchone()
-        if lms_check:
-            lms_count = conn.execute("SELECT COUNT(*) FROM lms_training_logs WHERE project_name=?", (p_name,)).fetchone()[0]
-            
-        conn.close()
-    except Exception:
-        pass
+        p_data_list.append({
+            "Project": p_name,
+            "Current Phase": p_phase,
+            "DD Readiness": f"{dd_progress_pct}%",
+            "Schedule Progress": f"{progress_pct}% ({p_comp_m}/{p_total_m})",
+            "Total Budget Logged": f"${p_budget:,.2f}",
+            "Safety Audits": toolbox_count,
+            "Vault Files": vault_count,
+            "Active Certifications": lms_count
+        })
         
-    total_safety_talks += toolbox_count
-    total_vault_files += vault_count
-    total_lms_certs += lms_count
-    dd_progress_pct = int((comp_dd / total_dd_items) * 100)
-            
-    # Append to Master List
-    portfolio_data.append({
-        "Project": p_name,
-        "Current Phase": p_phase,
-        "DD Readiness": f"{dd_progress_pct}%",
-        "Schedule Progress": f"{progress_pct}% ({p_comp_m}/{p_total_m})",
-        "Total Budget Logged": f"${p_budget:,.2f}",
-        "Safety Audits": toolbox_count,
-        "Vault Files": vault_count,
-        "Active Certifications": lms_count
-    })
+    return {
+        "projects_df": projects_df,
+        "portfolio_data": p_data_list,
+        "metrics": (t_projects, t_budget, t_milestones, t_comp_milestones, t_safety, t_vault, t_lms)
+    }
+
+compiled_data = compile_portfolio_metrics(filtered_projects_df)
+
+if not compiled_data:
+    st.info("No data found for the selected portfolio.")
+    st.stop()
+
+# Unpack Data
+projects_df = compiled_data["projects_df"]
+portfolio_data = compiled_data["portfolio_data"]
+total_projects, total_budget, total_milestones, total_milestones_completed, total_safety_talks, total_vault_files, total_lms_certs = compiled_data["metrics"]
+
 
 # ==========================================
 # TOP LEVEL AGGREGATE METRICS
