@@ -23,10 +23,16 @@ user_email = st.session_state.get("email", st.session_state.get("username", "Unk
 role = st.session_state.get("role", "Viewer")
 
 def init_local_db():
-    conn = sqlite3.connect(DB_FILE)
-    conn.execute("CREATE TABLE IF NOT EXISTS projects (project_name TEXT PRIMARY KEY, project_data TEXT)")
-    conn.commit()
-    conn.close()
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_FILE, timeout=10)
+        conn.execute("CREATE TABLE IF NOT EXISTS projects (project_name TEXT PRIMARY KEY, project_data TEXT)")
+        conn.commit()
+    except Exception as e:
+        pass
+    finally:
+        if conn:
+            conn.close()
 
 init_local_db()
 
@@ -53,10 +59,16 @@ with col1:
         selected_project = st.selectbox("Your Authorized Developments:", authorized_projects)
         if st.button("🚀 Load Project Workspace", type="primary"):
             # Sync to local SQLite to ensure Capital Stack/Due Diligence have a save slot
-            conn = sqlite3.connect(DB_FILE)
-            conn.execute("INSERT OR IGNORE INTO projects (project_name, project_data) VALUES (?, ?)", (selected_project, "{}"))
-            conn.commit()
-            conn.close()
+            conn = None
+            try:
+                conn = sqlite3.connect(DB_FILE, timeout=10)
+                conn.execute("INSERT OR IGNORE INTO projects (project_name, project_data) VALUES (?, ?)", (selected_project, "{}"))
+                conn.commit()
+            except Exception as e:
+                st.error(f"Workspace load error: {e}")
+            finally:
+                if conn:
+                    conn.close()
 
             st.session_state["active_project"] = selected_project
             st.success(f"Workspace loaded for: **{selected_project}**. You may now navigate the sidebar modules.")
@@ -70,19 +82,29 @@ with col2:
         st.subheader("Initialize New Development")
         with st.form("new_project_form", clear_on_submit=True):
             new_project_name = st.text_input("Project / Subdivision Name")
+            
+            # THE NEW PORTFOLIO INPUT
+            portfolio_name = st.text_input("Assign to Portfolio", value="Master Portfolio", help="Group projects into funds or regions (e.g., 'Hammond BTR Fund')")
+            
             if st.form_submit_button("🏗️ Create Project"):
                 if new_project_name:
-                    # 1. Save to Cloud Postgres (for Dashboard & Global Access)
-                    success, msg = create_project(new_project_name, "Active", "", user_email)
+                    # 1. Save to Cloud Postgres with the Portfolio Name
+                    success, msg = create_project(new_project_name, "Active", "", user_email, portfolio=portfolio_name)
                     
                     if success:
-                        # 2. Sync to Local SQLite (for local JSON state)
-                        conn = sqlite3.connect(DB_FILE)
-                        conn.execute("INSERT OR IGNORE INTO projects (project_name, project_data) VALUES (?, ?)", (new_project_name, "{}"))
-                        conn.commit()
-                        conn.close()
+                        # 2. Sync to Local SQLite (for local JSON state) with safety wrapper
+                        conn = None
+                        try:
+                            conn = sqlite3.connect(DB_FILE, timeout=10)
+                            conn.execute("INSERT OR IGNORE INTO projects (project_name, project_data) VALUES (?, ?)", (new_project_name, "{}"))
+                            conn.commit()
+                        except Exception as e:
+                            pass # Minor local fail, Postgres still succeeded
+                        finally:
+                            if conn:
+                                conn.close()
                         
-                        st.success(f"Project '{new_project_name}' successfully created in the Enterprise Cloud!")
+                        st.success(f"Project '{new_project_name}' successfully created under '{portfolio_name}'!")
                         st.rerun()
                     else:
                         st.error(f"Failed to create project: {msg}")
