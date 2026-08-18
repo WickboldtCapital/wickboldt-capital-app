@@ -1,6 +1,7 @@
 import streamlit as st
 import sqlite3
 import json
+import os
 
 st.set_page_config(page_title="Project Control Center", layout="wide")
 
@@ -11,7 +12,12 @@ if not st.session_state.get("logged_in"):
     st.warning("⚠️ Access Restricted: Please log in.")
     st.stop()
 
-DB_FILE = "wickboldt_projects.db"
+# --- ENTERPRISE PERSISTENT STORAGE ROUTING ---
+# If the Railway permanent volume exists, use it. Otherwise, use local for testing.
+if os.path.exists("/app/data"):
+    DB_FILE = "/app/data/wickboldt_projects.db"
+else:
+    DB_FILE = "wickboldt_projects.db"
 
 # Match your session state keys (defaults to checking email first, then username)
 user_email = st.session_state.get("email", st.session_state.get("username", "Unknown"))
