@@ -6,15 +6,19 @@ from datetime import date
 st.set_page_config(page_title="Standard Operating Procedures (SOP)", layout="wide")
 
 # ==========================================
-# 🔒 SECURITY GUARD
+# 🔒 SECURITY & CONTEXT GUARDS
 # ==========================================
 if not st.session_state.get("logged_in"):
     st.warning("⚠️ Access Restricted: Please log in.")
     st.stop()
 
+active_project = st.session_state.get("active_project")
+if not active_project:
+    st.warning("⚠️ Access Restricted: Please load an authorized project from the Control tab.")
+    st.stop()
+
 DB_FILE = "wickboldt_projects.db"
 role = st.session_state.get("role", "Viewer")
-active_project = st.session_state.get("active_project", "Global/All Projects")
 
 # --- DB HELPERS (GLOBAL TABLES) ---
 def init_sop_db():
@@ -65,13 +69,28 @@ def get_sops():
 
 def get_signoffs():
     conn = sqlite3.connect(DB_FILE)
-    query = """
-        SELECT s.title AS SOP_Title, o.project_name AS Project, o.target_person AS Name, o.role AS Role, o.signoff_date AS Date 
-        FROM sop_signoffs o
-        JOIN company_sops s ON o.sop_id = s.id
-        ORDER BY o.signoff_date DESC
-    """
-    df = pd.read_sql_query(query, conn)
+    
+    # MULTI-TENANT ISOLATION LOGIC
+    if role in ["Admin", "Manager"]:
+        # Admins/Managers see all sign-offs across the portfolio
+        query = """
+            SELECT s.title AS SOP_Title, o.project_name AS Project, o.target_person AS Name, o.role AS Role, o.signoff_date AS Date 
+            FROM sop_signoffs o
+            JOIN company_sops s ON o.sop_id = s.id
+            ORDER BY o.signoff_date DESC
+        """
+        df = pd.read_sql_query(query, conn)
+    else:
+        # Standard users only see sign-offs for their currently authorized active project
+        query = """
+            SELECT s.title AS SOP_Title, o.project_name AS Project, o.target_person AS Name, o.role AS Role, o.signoff_date AS Date 
+            FROM sop_signoffs o
+            JOIN company_sops s ON o.sop_id = s.id
+            WHERE o.project_name = ?
+            ORDER BY o.signoff_date DESC
+        """
+        df = pd.read_sql_query(query, conn, params=(active_project,))
+        
     conn.close()
     return df
 
@@ -112,7 +131,7 @@ with tab_library:
 # ==========================================
 with tab_lms:
     st.subheader("Subcontractor & Employee Acknowledgments")
-    st.markdown(f"Log training completion and protocol acknowledgment for **{active_project}**.")
+    st.markdown(f"Log training completion and protocol acknowledgment securely for **{active_project}**.")
     
     lms_col1, lms_col2 = st.columns([1, 2], gap="large")
     
@@ -147,7 +166,7 @@ with tab_lms:
         if not signoffs_df.empty:
             st.dataframe(signoffs_df, use_container_width=True, hide_index=True)
         else:
-            st.info("No training sign-offs have been recorded yet.")
+            st.info("No training sign-offs have been recorded for this project yet.")
 
 # ==========================================
 # TAB 3: SOP ADMINISTRATION (ADMIN ONLY)
