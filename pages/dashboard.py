@@ -2,9 +2,16 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import json
+import os
 from db_ops import get_user_projects_df, get_project_milestones, get_project_budget
 
 st.set_page_config(page_title="Executive Dashboard", layout="wide")
+
+# --- ENTERPRISE PERSISTENT STORAGE ROUTING ---
+if os.path.exists("/app/data"):
+    DB_FILE = "/app/data/wickboldt_projects.db"
+else:
+    DB_FILE = "wickboldt_projects.db"
 
 # ==========================================
 # 🔒 SECURITY GUARD
@@ -72,7 +79,7 @@ for _, proj in projects_df.iterrows():
     total_dd_items = 12 # 4 Site + 4 Legal + 4 Engineering items
     
     try:
-        conn = sqlite3.connect("wickboldt_projects.db")
+        conn = sqlite3.connect(DB_FILE)
         
         # Extract JSON state data (Toolbox, Vault, DD Checklists)
         table_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'").fetchone()
@@ -153,7 +160,7 @@ st.dataframe(portfolio_df, use_container_width=True, hide_index=True)
 st.divider()
 st.subheader("🛡️ Recent Global Compliance (LMS)")
 try:
-    conn = sqlite3.connect("wickboldt_projects.db")
+    conn = sqlite3.connect(DB_FILE)
     lms_check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='lms_training_logs'").fetchone()
     
     if lms_check:
