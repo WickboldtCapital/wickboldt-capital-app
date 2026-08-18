@@ -1,7 +1,6 @@
 import streamlit as st
 import sqlite3
 import json
-import pd
 import pandas as pd
 from datetime import date
 from fpdf import FPDF
@@ -33,17 +32,22 @@ else:
 # DATA FETCHING HELPERS
 # ==========================================
 def get_lms_logs(project_name):
-    conn = sqlite3.connect(DB_FILE)
+    df = pd.DataFrame()
+    conn = None
     try:
+        conn = sqlite3.connect(DB_FILE, timeout=10)
         df = pd.read_sql_query("SELECT worker_name, trade_company, course_name, completion_date FROM lms_training_logs WHERE project_name=?", conn, params=(project_name,))
     except Exception:
-        df = pd.DataFrame()
-    conn.close()
+        pass
+    finally:
+        if conn:
+            conn.close()
     return df
 
 def get_vault_manifest(project_name):
-    conn = sqlite3.connect(DB_FILE)
+    conn = None
     try:
+        conn = sqlite3.connect(DB_FILE, timeout=10)
         row = conn.execute("SELECT project_data FROM projects WHERE project_name=?", (project_name,)).fetchone()
         if row and row[0]:
             p_data = json.loads(row[0])
@@ -51,7 +55,8 @@ def get_vault_manifest(project_name):
     except Exception:
         pass
     finally:
-        conn.close()
+        if conn:
+            conn.close()
     return {}
 
 # ==========================================
