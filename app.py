@@ -1,9 +1,11 @@
 import streamlit as st
 import urllib.parse
 import os
+from core_backend import auto_backup_db, init_db, inject_custom_theme
+from db_ops import get_library_state
 
 # ==========================================
-# 🛑 1. CHECK LOGIN STATUS FIRST
+# 🛑 1. INITIALIZE SESSION STATE
 # ==========================================
 if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
 if "active_project" not in st.session_state: st.session_state["active_project"] = None
@@ -15,7 +17,7 @@ if st.session_state.get("email") == "steve.wickboldt.jr@gmail.com":
     st.session_state["role"] = "Admin"
 
 # ==========================================
-# 🛑 2. DYNAMIC PAGE CONFIG (INSTANT UI)
+# 🛑 2. NATIVE PAGE CONFIG
 # ==========================================
 current_sidebar_state = "expanded" if st.session_state["logged_in"] else "collapsed"
 
@@ -27,36 +29,32 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🚦 3. NUCLEAR CSS LOCK
+# 🚦 3. UNIFIED CSS LOCK & CLEANUP
 # ==========================================
 if not st.session_state["logged_in"]:
     st.markdown("""
         <style>
-            /* 1. Nuke Sidebar & Header completely */
-            [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
-            [data-testid="collapsedControl"] { display: none !important; }
-            [data-testid="stHeader"] { display: none !important; }
-            
-            /* 2. Nuke the top Streamlit Decoration line (the thin grey bar) */
-            [data-testid="stDecoration"] { display: none !important; }
-            
-            /* 3. Nuke the 'Running...' status indicator */
-            [data-testid="stStatusWidget"] { display: none !important; }
-            
-            /* 4. Nuke all Skeleton Loaders */
-            .stAppSkeleton, [data-testid="stAppSkeleton"], [data-testid="stSkeleton"] { 
+            [data-testid="stSidebar"], 
+            [data-testid="collapsedControl"], 
+            [data-testid="stHeader"] { 
                 display: none !important; 
-                opacity: 0 !important; 
             }
         </style>
     """, unsafe_allow_html=True)
 
-# ==========================================
-# 🚀 4. HEAVY IMPORTS (BACKGROUND LOADING)
-# ==========================================
-from core_backend import auto_backup_db, init_db, inject_custom_theme
-from db_ops import get_library_state
+st.markdown("""
+    <style>
+        /* Fix 'View more' button color clash in sidebar */
+        [data-testid="stSidebarNavItems"] button {
+            color: #ffffff !important;
+            background-color: rgba(255,255,255,0.1) !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
+# ==========================================
+# 🚀 4. SYSTEM INITIALIZATION
+# ==========================================
 # Force HTTPS
 try:
     host = st.context.headers.get("Host", "")
@@ -74,23 +72,10 @@ if "system_initialized" not in st.session_state:
     auto_backup_db()
     st.session_state["system_initialized"] = True
 
-# ==========================================
-# 🎨 5. CLEAN CSS INJECTIONS & THEME
-# ==========================================
-st.markdown("""
-    <style>
-        /* Fix 'View more' button color clash in sidebar */
-        [data-testid="stSidebarNavItems"] button {
-            color: #ffffff !important;
-            background-color: rgba(255,255,255,0.1) !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
 inject_custom_theme()
 
 # ==========================================
-# 📄 DEDICATED DOCUMENT VIEWER ROUTE
+# 📄 5. DEDICATED DOCUMENT VIEWER ROUTE
 # ==========================================
 if "view_doc" in st.query_params:
     doc_title = st.query_params["view_doc"]
@@ -105,7 +90,7 @@ if "view_doc" in st.query_params:
     st.stop()
 
 # ==========================================
-# 🚦 MASTER ROUTING ENGINE
+# 🚦 6. MASTER ROUTING ENGINE
 # ==========================================
 if not st.session_state["logged_in"]:
     pg = st.navigation([st.Page("pages/login.py", title="Sign In", icon="🔒")], position="hidden")
