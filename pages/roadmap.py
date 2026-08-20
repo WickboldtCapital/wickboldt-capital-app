@@ -13,9 +13,10 @@ st.caption("Live tracking of architectural updates, feature deployments, and upc
 st.divider()
 
 st.markdown("""
-### 📋 Summary of Changes (Current Revision: Rev 11.0)
+### 📋 Summary of Changes (Current Revision: Rev 12.0)
 *August 2026*
 
+* **Public Web Infrastructure & CMS Integration:** Standardized the public-facing corporate website (`WickboldtCapital-Public`) on Netlify with custom domain routing. Resolved static asset caching and responsive image cropping. Migrated front-end management to **Publii**, an open-source static CMS, to provide visual dashboard editing, strict SEO control, and one-click Netlify synchronization without proprietary vendor lock-in.
 * **Multi-Tenant Security Architecture:** Integrated strict project-level data isolation across all modules. Authorized users can now only access projects explicitly mapped to their profile via the Project Control Center and User Management panel.
 * **Master Document Vault (`pages/vault.py`):** Deployed a centralized, physical file management system. Securely upload and download PDF blueprints, site drawings, municipal permits, and legal deeds isolated by project.
 * **Subcontractor CRM & Procurement (`pages/subs.py`):** Fully operationalized trade roster, Bid Requests (RFPs), a Quote Document Vault, and **live Bid Leveling against engineered targets** (automatically pulling MEP, Framing, and Architecture budgets from the database).
@@ -57,12 +58,15 @@ st.markdown("""
 - [x] Multi-Tenant Project Isolation & Role-Based Access Control.
 
 #### 🏗️ Phase 5: Future Enhancements (Active)
+- [x] Public Corporate Front-End & Enterprise Portal Routing (`WickboldtCapital-Public` on Netlify/Porkbun).
+- [x] Publii Open-Source CMS & Automated Netlify CI/CD Synchronization.
 - [ ] Executive Portfolio-Level Aggregation Dashboard (`pages/dashboard.py`).
 
 ---
 
 ### 📜 Master Update Log
 
+* **Rev 12.0 (Aug 2026):** Deployed enterprise public front-end infrastructure via Netlify. Resolved CSS image rendering caching, finalized layout, and integrated Publii open-source CMS for visual content management and automated static deployment.
 * **Rev 11.0 (Aug 2026):** Completed Phase 10/Phase 4 Enterprise Governance. Deployed multi-tenant security architecture, Master Document Vault with disk uploads, Subcontractor procurement against engineered targets, and the Enterprise LMS training suite.
 * **Rev 10.0 (Aug 2026):** Officially completed and deployed Phase 9 (Scheduling & Milestones module with live database hooks).
 * **Rev 6.0 (Aug 2026):** Deployed complete MEP suite (HVAC, Plumbing, Electrical), Structural/Foundation upgrades, and live Proforma ERP synchronization.
