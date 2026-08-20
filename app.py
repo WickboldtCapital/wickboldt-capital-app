@@ -25,13 +25,17 @@ if st.session_state.get("email") == "steve.wickboldt.jr@gmail.com":
     st.session_state["role"] = "Admin"
 
 # ==========================================
-# 🚦 IMMEDIATE ANTI-FLASH CSS INJECTION
+# 🚦 IRONCLAD ANTI-FLASH CSS LOCK
 # ==========================================
 if not st.session_state["logged_in"]:
     st.markdown("""
         <style>
-            [data-testid="stSidebar"] { display: none !important; }
+            /* 1. Nuke the sidebar completely */
+            [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
+            /* 2. Hide the little arrow button that opens the sidebar */
             [data-testid="collapsedControl"] { display: none !important; }
+            /* 3. Hide the top header bar to prevent page jumping */
+            [data-testid="stHeader"] { display: none !important; }
         </style>
     """, unsafe_allow_html=True)
 
