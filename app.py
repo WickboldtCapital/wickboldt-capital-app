@@ -27,25 +27,33 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🚦 3. IRONCLAD CSS LOCK & ANTI-SKELETON
+# 🚦 3. NUCLEAR CSS LOCK
 # ==========================================
 if not st.session_state["logged_in"]:
     st.markdown("""
         <style>
-            /* Nuke Sidebar & Header */
+            /* 1. Nuke Sidebar & Header completely */
             [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
             [data-testid="collapsedControl"] { display: none !important; }
             [data-testid="stHeader"] { display: none !important; }
             
-            /* Nuke Streamlit's Grey Skeleton Loader */
-            .stAppSkeleton, [data-testid="stSkeleton"] { display: none !important; opacity: 0 !important; }
+            /* 2. Nuke the top Streamlit Decoration line (the thin grey bar) */
+            [data-testid="stDecoration"] { display: none !important; }
+            
+            /* 3. Nuke the 'Running...' status indicator */
+            [data-testid="stStatusWidget"] { display: none !important; }
+            
+            /* 4. Nuke all Skeleton Loaders */
+            .stAppSkeleton, [data-testid="stAppSkeleton"], [data-testid="stSkeleton"] { 
+                display: none !important; 
+                opacity: 0 !important; 
+            }
         </style>
     """, unsafe_allow_html=True)
 
 # ==========================================
 # 🚀 4. HEAVY IMPORTS (BACKGROUND LOADING)
 # ==========================================
-# By loading these AFTER the CSS lock, we prevent the grey loading bars!
 from core_backend import auto_backup_db, init_db, inject_custom_theme
 from db_ops import get_library_state
 
