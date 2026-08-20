@@ -6,15 +6,8 @@ from core_backend import auto_backup_db, init_db, inject_custom_theme
 from db_ops import get_library_state
 
 # ==========================================
-# 🛑 INITIALIZATION & SECURITY GATES
+# 🛑 1. CHECK LOGIN STATUS FIRST
 # ==========================================
-st.set_page_config(
-    page_title="Wickboldt Capital - Development Portal",
-    layout="wide",
-    initial_sidebar_state="expanded", 
-)
-
-# --- SESSION STATE INITIALIZATION ---
 if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
 if "active_project" not in st.session_state: st.session_state["active_project"] = None
 if "email" not in st.session_state: st.session_state["email"] = "steve.wickboldt.jr@gmail.com"
@@ -25,16 +18,25 @@ if st.session_state.get("email") == "steve.wickboldt.jr@gmail.com":
     st.session_state["role"] = "Admin"
 
 # ==========================================
-# 🚦 IRONCLAD ANTI-FLASH CSS LOCK
+# 🛑 2. DYNAMIC PAGE CONFIG (CURES THE FLICKER)
+# ==========================================
+# Start collapsed if they aren't logged in, expanded if they are.
+current_sidebar_state = "expanded" if st.session_state["logged_in"] else "collapsed"
+
+st.set_page_config(
+    page_title="Wickboldt Capital - Development Portal",
+    layout="wide",
+    initial_sidebar_state=current_sidebar_state, 
+)
+
+# ==========================================
+# 🚦 3. IRONCLAD ANTI-FLASH CSS LOCK
 # ==========================================
 if not st.session_state["logged_in"]:
     st.markdown("""
         <style>
-            /* 1. Nuke the sidebar completely */
             [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
-            /* 2. Hide the little arrow button that opens the sidebar */
             [data-testid="collapsedControl"] { display: none !important; }
-            /* 3. Hide the top header bar to prevent page jumping */
             [data-testid="stHeader"] { display: none !important; }
         </style>
     """, unsafe_allow_html=True)
