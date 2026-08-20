@@ -29,15 +29,37 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🚦 3. UNIFIED CSS LOCK & CLEANUP
+# 🚦 3. UNIFIED CSS LOCK & WHITE CURTAIN
 # ==========================================
 if not st.session_state["logged_in"]:
     st.markdown("""
         <style>
+            /* 1. Nuke native UI elements */
             [data-testid="stSidebar"], 
             [data-testid="collapsedControl"], 
             [data-testid="stHeader"] { 
                 display: none !important; 
+            }
+            
+            /* 2. THE WHITE CURTAIN */
+            /* Covers the entire screen in pure white, then fades out after 1.5 seconds */
+            .stApp::before {
+                content: "";
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background-color: #ffffff;
+                z-index: 9999999;
+                animation: liftCurtain 0.5s ease 1.5s forwards;
+            }
+            
+            @keyframes liftCurtain {
+                to {
+                    opacity: 0;
+                    visibility: hidden;
+                }
             }
         </style>
     """, unsafe_allow_html=True)
