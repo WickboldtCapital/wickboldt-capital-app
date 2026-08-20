@@ -1,7 +1,5 @@
 import streamlit as st
 import urllib.parse
-import base64
-import os
 from core_backend import auto_backup_db, init_db, inject_custom_theme
 from db_ops import get_library_state
 
@@ -25,6 +23,7 @@ current_sidebar_state = "expanded" if st.session_state["logged_in"] else "collap
 
 st.set_page_config(
     page_title="Wickboldt Capital - Development Portal",
+    page_icon="assets/logo.svg", # <--- LOGO LOADED NATIVELY HERE
     layout="wide",
     initial_sidebar_state=current_sidebar_state, 
 )
@@ -58,31 +57,19 @@ if "system_initialized" not in st.session_state:
     auto_backup_db()
     st.session_state["system_initialized"] = True
 
-# Logo Injector
-def apply_custom_overrides(svg_path):
-    if not os.path.exists(svg_path): return
-    try:
-        with open(svg_path, "rb") as f:
-            encoded_svg = base64.b64encode(f.read()).decode()
-        st.markdown(f"""
-            <style>
-                /* Fix 'View more' button color clash in sidebar */
-                [data-testid="stSidebarNavItems"] button {{
-                    color: #ffffff !important;
-                    background-color: rgba(255,255,255,0.1) !important;
-                }}
-            </style>
-            <script>
-                var targetDoc = window.parent.document;
-                var link = targetDoc.querySelector("link[rel*='icon']") || targetDoc.createElement('link');
-                link.type = 'image/svg+xml';
-                link.rel = 'shortcut icon';
-                link.href = 'data:image/svg+xml;base64,{encoded_svg}';
-                targetDoc.getElementsByTagName('head')[0].appendChild(link);
-            </script>""", unsafe_allow_html=True)
-    except Exception: pass
+# ==========================================
+# 🎨 4. CLEAN CSS INJECTIONS & THEME
+# ==========================================
+st.markdown("""
+    <style>
+        /* Fix 'View more' button color clash in sidebar */
+        [data-testid="stSidebarNavItems"] button {
+            color: #ffffff !important;
+            background-color: rgba(255,255,255,0.1) !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-apply_custom_overrides("assets/logo.svg")
 inject_custom_theme()
 
 # ==========================================
